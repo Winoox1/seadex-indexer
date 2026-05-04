@@ -4,6 +4,20 @@ from typing import Optional
 from xml.sax.saxutils import escape
 
 _SEASON_RE = re.compile(r"\b([Ss]eason\s*\d{1,2}|[Ss]\d{1,2})\b")
+# Matches the first quality/format marker after the show name (version tag, or opening bracket)
+_QUALITY_MARKER_RE = re.compile(r"^(\[.*?\]\s*)(.*?)(\s+(?:v\d+|\(|\[))", re.DOTALL)
+_QUALITY_MARKER_NO_GROUP_RE = re.compile(r"^(.*?)(\s+(?:v\d+|\(|\[))", re.DOTALL)
+
+
+def _insert_season_tag(title: str, season: int) -> str:
+    tag = f"[S{season:02d}]"
+    m = _QUALITY_MARKER_RE.match(title)
+    if m:
+        return f"{m.group(1)}{m.group(2)} {tag}{m.group(3)}{title[m.end():]}"
+    m = _QUALITY_MARKER_NO_GROUP_RE.match(title)
+    if m:
+        return f"{m.group(1)} {tag}{m.group(2)}{title[m.end():]}"
+    return f"{title} {tag}"
 
 
 def _caps_xml(mode: str) -> str:
@@ -95,7 +109,7 @@ def _build_item(t: dict, mode: str, season: Optional[int] = None) -> str:
 
     title = t["title"]
     if season is not None and not _SEASON_RE.search(title):
-        title = f"{title} S{season:02d}"
+        title = _insert_season_tag(title, season)
 
     full_title = f"{title} {seadex_tag}"
     if tag_str:
