@@ -10,7 +10,7 @@ A Prowlarr Torznab indexer that serves the best releases according to **[SeaDex]
 - **Sonarr** (`/sonarr/api`) — TVDB ID + season → AniList → SeaDex → Nyaa
 - **Radarr** (`/radarr/api`) — TMDB/IMDB ID → AniList → SeaDex → Nyaa
 - **Redis caching** — 6-hour result cache, 24-hour mapping cache, must host your own instance of Redis
-- **Relase Title enchancements** — `[SeaDexBest]`, `[SeaDexAlt]`, and all SeaDex compatibility tags, aditionally will add season number sent by Sonarr as SXX if not present already
+- **Relase Title enchancements** — Adds `[SeaDexBest]`, `[SeaDexAlt]`, and all SeaDex compatibility tags, aditionally will add the season number sent by Sonarr as SXX if its not present already
 - **Season Packs only** — As SeaDex only categorises full Season Packs, this indexer will also only return full Season Packs no matter if a season or episode search is done
 
 > [!IMPORTANT]  
@@ -43,10 +43,22 @@ docker compose up -d
 
 ## Prowlarr Setup
 
+Add two separate indexers — one for Sonarr, one for Radarr:
+
 1. Add indexer → **Generic Torznab**
 2. For Sonarr: URL = `http://seadex-indexer:3232/sonarr`
 3. For Radarr: URL = `http://seadex-indexer:3232/radarr`
 4. Click **Test** and **Save**
+
+**Optional — restricting to specific app instances via tags:**
+
+> [!IMPORTANT]
+> Tags should be used with caution, they can have unintended effects. An app with a tag will sonly sync with indexers having the same tag.
+
+If you run multiple Sonarr or Radarr instances and want to sync each indexer only to your anime instance, assign tags in Prowlarr:
+
+- Add tag `anime` to the Sonarr indexer → set the same tag on your anime Sonarr instance in Prowlarr → Settings → Apps
+- Add tag `anime-movies` to the Radarr indexer → set the same tag on your anime Radarr instance
 
 ## Sonarr / Radarr Custom Formats
 
