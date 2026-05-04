@@ -4,13 +4,13 @@ from typing import Optional
 from xml.sax.saxutils import escape
 
 _SEASON_RE = re.compile(r"\b([Ss]eason\s*\d{1,2}|[Ss]\d{1,2})\b")
+_YEAR_RE = re.compile(r"\b(19|20)\d{2}\b")
 # Matches the first quality/format marker after the show name (version tag, or opening bracket)
 _QUALITY_MARKER_RE = re.compile(r"^(\[.*?\]\s*)(.*?)(\s+(?:v\d+|\(|\[))", re.DOTALL)
 _QUALITY_MARKER_NO_GROUP_RE = re.compile(r"^(.*?)(\s+(?:v\d+|\(|\[))", re.DOTALL)
 
 
-def _insert_season_tag(title: str, season: int) -> str:
-    tag = f"[S{season:02d}]"
+def _insert_before_quality(title: str, tag: str) -> str:
     m = _QUALITY_MARKER_RE.match(title)
     if m:
         return f"{m.group(1)}{m.group(2)} {tag}{m.group(3)}{title[m.end():]}"
@@ -18,6 +18,14 @@ def _insert_season_tag(title: str, season: int) -> str:
     if m:
         return f"{m.group(1)} {tag}{m.group(2)}{title[m.end():]}"
     return f"{title} {tag}"
+
+
+def _insert_season_tag(title: str, season: int) -> str:
+    return _insert_before_quality(title, f"[S{season:02d}]")
+
+
+def _insert_year_tag(title: str, year: int) -> str:
+    return _insert_before_quality(title, f"({year})")
 
 
 def _caps_xml(mode: str) -> str:
@@ -102,7 +110,7 @@ def _empty_xml(mode: str) -> str:
 </rss>"""
 
 
-def _build_item(t: dict, mode: str, season: Optional[int] = None) -> str:
+def _build_item(t: dict, mode: str, season: Optional[int] = None, year: Optional[int] = None) -> str:
     cat = "5070" if mode == "sonarr" else "2070"
     seadex_tag = "[SeaDexBest]" if t["best"] else "[SeaDexAlt]"
     tag_str = " ".join(f"[{tag}]" for tag in t.get("tags", []))
@@ -110,6 +118,8 @@ def _build_item(t: dict, mode: str, season: Optional[int] = None) -> str:
     title = t["title"]
     if season is not None and not _SEASON_RE.search(title):
         title = _insert_season_tag(title, season)
+    if year is not None and not _YEAR_RE.search(title):
+        title = _insert_year_tag(title, year)
 
     full_title = f"{title} {seadex_tag}"
     if tag_str:
@@ -137,9 +147,9 @@ def _build_item(t: dict, mode: str, season: Optional[int] = None) -> str:
     </item>"""
 
 
-def build_results_xml(torrents: list[dict], mode: str, season: Optional[int] = None) -> str:
+def build_results_xml(torrents: list[dict], mode: str, season: Optional[int] = None, year: Optional[int] = None) -> str:
     title = "SeaDex Sonarr Indexer" if mode == "sonarr" else "SeaDex Radarr Indexer"
-    items = "".join(_build_item(t, mode, season) for t in torrents if t.get("title") and t.get("link"))
+    items = "".join(_build_item(t, mode, season, year) for t in torrents if t.get("title") and t.get("link"))
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:torznab="http://torznab.com/schemas/2015/feed">
   <channel>

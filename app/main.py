@@ -7,7 +7,7 @@ from typing import Optional
 from fastapi import FastAPI, Query
 from fastapi.responses import Response
 
-from . import mapping, seadex, nyaa, torznab
+from . import mapping, seadex, nyaa, torznab, anilist
 from .cache import cache_get, cache_set, get_redis
 from .config import settings
 
@@ -88,7 +88,7 @@ async def _resolve_anilist_ids_radarr(
     return ids
 
 
-async def _search_and_build(anilist_ids: list[int], mode: str, season: Optional[int] = None) -> str:
+async def _search_and_build(anilist_ids: list[int], mode: str, season: Optional[int] = None, year: Optional[int] = None) -> str:
     """Run the full SeaDex -> Nyaa pipeline and return Torznab XML."""
     t0 = time.monotonic()
 
@@ -115,7 +115,7 @@ async def _search_and_build(anilist_ids: list[int], mode: str, season: Optional[
         f"{len(torrents)} results ({best} best, {alt} alt) in {elapsed:.1f}s"
     )
 
-    return torznab.build_results_xml(torrents, mode, season)
+    return torznab.build_results_xml(torrents, mode, season, year)
 
 
 # ── Sonarr endpoint ────────────────────────────────────────────────────────────
@@ -200,8 +200,9 @@ async def radarr_api(
         logger.info(f"Cache hit: radarr anilist={anilist_ids[0]}")
         return xml_response(cached)
 
-    logger.info(f"radarr tmdb={tmdbid} imdb={imdbid} -> anilist={anilist_ids}")
-    xml = await _search_and_build(anilist_ids, "radarr")
+    year = await anilist.fetch_year(anilist_ids[0])
+    logger.info(f"radarr tmdb={tmdbid} imdb={imdbid} -> anilist={anilist_ids} year={year}")
+    xml = await _search_and_build(anilist_ids, "radarr", year=year)
     await cache_set(cache_key, xml, settings.result_cache_ttl)
     return xml_response(xml)
 

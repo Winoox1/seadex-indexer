@@ -10,7 +10,7 @@ A Prowlarr Torznab indexer that serves the best releases according to **[SeaDex]
 - **Sonarr** (`/sonarr/api`) — TVDB ID + season → AniList → SeaDex → Nyaa
 - **Radarr** (`/radarr/api`) — TMDB/IMDB ID → AniList → SeaDex → Nyaa
 - **Redis caching** — 6-hour result cache, 24-hour mapping cache, must host your own instance of Redis
-- **Relase Title enchancements** — Adds `[SeaDexBest]`, `[SeaDexAlt]`, and all SeaDex compatibility tags, aditionally will add the season number sent by Sonarr as SXX if its not present already
+- **Relase Title enchancements** — Adds `[SeaDexBest]`, `[SeaDexAlt]`, and all SeaDex compatibility tags, aditionally will add the season number sent by Sonarr as SXX if its not present already, for Radarr a year will be added if not present yet by fetching it from AniList
 - **Season Packs only** — As SeaDex only categorises full Season Packs, this indexer will also only return full Season Packs no matter if a season or episode search is done
 
 > [!IMPORTANT]  
