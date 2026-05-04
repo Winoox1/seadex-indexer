@@ -151,6 +151,7 @@ async def sonarr_api(
 
     # Real search — must have tvdbid + season
     if not tvdbid or season is None:
+        logger.debug(f"sonarr rejected: tvdbid={tvdbid} season={season} ep={ep} q={q!r}")
         return xml_response(torznab.empty_xml("sonarr"))
 
     anilist_ids = await _resolve_anilist_ids_sonarr(tvdbid, season)
