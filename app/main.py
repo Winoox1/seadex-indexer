@@ -1,12 +1,10 @@
 import asyncio
-import json
 import logging
-import re
 import time
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, Query, Request
+from fastapi import FastAPI, Query
 from fastapi.responses import Response
 
 from . import mapping, seadex, nyaa, torznab
@@ -90,7 +88,7 @@ async def _resolve_anilist_ids_radarr(
     return ids
 
 
-async def _search_and_build(anilist_ids: list[int], mode: str) -> str:
+async def _search_and_build(anilist_ids: list[int], mode: str, season: Optional[int] = None) -> str:
     """Run the full SeaDex -> Nyaa pipeline and return Torznab XML."""
     t0 = time.monotonic()
 
@@ -117,7 +115,7 @@ async def _search_and_build(anilist_ids: list[int], mode: str) -> str:
         f"{len(torrents)} results ({best} best, {alt} alt) in {elapsed:.1f}s"
     )
 
-    return torznab.build_results_xml(torrents, mode)
+    return torznab.build_results_xml(torrents, mode, season)
 
 
 # ── Sonarr endpoint ────────────────────────────────────────────────────────────
@@ -162,7 +160,7 @@ async def sonarr_api(
         return xml_response(cached)
 
     logger.info(f"sonarr tvdb={tvdbid} s={season} -> anilist={anilist_ids}")
-    xml = await _search_and_build(anilist_ids, "sonarr")
+    xml = await _search_and_build(anilist_ids, "sonarr", season)
     await cache_set(cache_key, xml, settings.result_cache_ttl)
     return xml_response(xml)
 

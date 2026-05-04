@@ -1,5 +1,9 @@
+import re
 from datetime import datetime, timezone
+from typing import Optional
 from xml.sax.saxutils import escape
+
+_SEASON_RE = re.compile(r"\b([Ss]eason\s*\d{1,2}|[Ss]\d{1,2})\b")
 
 
 def _caps_xml(mode: str) -> str:
@@ -84,11 +88,16 @@ def _empty_xml(mode: str) -> str:
 </rss>"""
 
 
-def _build_item(t: dict, mode: str) -> str:
+def _build_item(t: dict, mode: str, season: Optional[int] = None) -> str:
     cat = "5070" if mode == "sonarr" else "2070"
     seadex_tag = "[SeaDexBest]" if t["best"] else "[SeaDexAlt]"
     tag_str = " ".join(f"[{tag}]" for tag in t.get("tags", []))
-    full_title = f"{t['title']} {seadex_tag}"
+
+    title = t["title"]
+    if season is not None and not _SEASON_RE.search(title):
+        title = f"{title} S{season:02d}"
+
+    full_title = f"{title} {seadex_tag}"
     if tag_str:
         full_title += f" {tag_str}"
 
@@ -114,9 +123,9 @@ def _build_item(t: dict, mode: str) -> str:
     </item>"""
 
 
-def build_results_xml(torrents: list[dict], mode: str) -> str:
+def build_results_xml(torrents: list[dict], mode: str, season: Optional[int] = None) -> str:
     title = "SeaDex Sonarr Indexer" if mode == "sonarr" else "SeaDex Radarr Indexer"
-    items = "".join(_build_item(t, mode) for t in torrents if t.get("title") and t.get("link"))
+    items = "".join(_build_item(t, mode, season) for t in torrents if t.get("title") and t.get("link"))
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:torznab="http://torznab.com/schemas/2015/feed">
   <channel>
