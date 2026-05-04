@@ -13,6 +13,10 @@ A Prowlarr Torznab indexer that serves the best releases according to **[SeaDex]
 - **SeaDex tags** — `[SeaDexBest]`, `[SeaDexAlt]`, and all SeaDex compatibility tags
 - **Season Packs only** — As SeaDex only categorises full Season Packs, this indexer will also only return full Season Packs no matter if a season or episode search is done
 
+> [!IMPORTANT]  
+> **Specials not supported** — Sonarr does not send enough information to reliably identify a specials search, so specials searches will return no results
+
+
 ## Quick Start Docker Compose
 
 ```yaml
