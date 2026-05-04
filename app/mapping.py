@@ -136,9 +136,10 @@ async def load_mappings(force: bool = False) -> None:
             except Exception as e:
                 logger.warning(f"Failed to parse cached mappings: {e}")
 
-    logger.info(f"Fetching AniBridge mappings from {settings.anibridge_mappings_url}")
+    url = "https://github.com/anibridge/anibridge-mappings/releases/latest/download/mappings.min.json"
+    logger.info(f"Fetching AniBridge mappings from {url}")
     async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
-        resp = await client.get(settings.anibridge_mappings_url)
+        resp = await client.get(url)
         resp.raise_for_status()
         raw = resp.text
 

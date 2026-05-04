@@ -4,7 +4,6 @@ from typing import Optional
 
 import httpx
 
-from .config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,7 @@ async def query_seadex(anilist_ids: list[int]) -> list[dict]:
     page = 1
 
     try:
-        async with httpx.AsyncClient(timeout=settings.seadex_timeout) as client:
+        async with httpx.AsyncClient(timeout=15) as client:
             while True:
                 params = {
                     "filter": filter_str,
@@ -34,7 +33,7 @@ async def query_seadex(anilist_ids: list[int]) -> list[dict]:
                     "page": str(page),
                 }
                 resp = await client.get(
-                    f"{settings.seadex_base_url}/collections/entries/records",
+                    "https://releases.moe/api/collections/entries/records",
                     params=params,
                 )
                 resp.raise_for_status()

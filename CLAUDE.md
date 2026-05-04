@@ -44,6 +44,8 @@ All settings are in [app/config.py](app/config.py) via `pydantic-settings`. Ever
 | `NYAA_BATCH_INTERVAL` | `1.0` | Delay between Nyaa requests (rate limiting) |
 | `LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 
+AniBridge mappings URL is hardcoded to the latest release and is not configurable.
+
 ## Architecture
 
 ### Request pipeline

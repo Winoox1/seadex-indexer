@@ -84,7 +84,6 @@ Create Custom Formats matching these title tags for scoring. The `[SeaDexBest]` 
 | `MAPPING_CACHE_TTL` | `86400` | AniBridge mapping cache TTL (seconds) |
 | `NYAA_BATCH_INTERVAL` | `1.0` | Delay between Nyaa requests (seconds) |
 | `LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
-| `ANIBRIDGE_MAPPINGS_URL` | `github.com/anibridge/anibridge-mappings/releases/latest/download/mappings.min.json` | URL to AniBridge mappings JSON |
 
 ## Health Check
 
