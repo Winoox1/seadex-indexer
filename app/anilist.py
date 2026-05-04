@@ -38,7 +38,7 @@ async def fetch_year(anilist_id: int) -> Optional[int]:
         logger.warning(f"AniList year fetch failed for {anilist_id}: {e}")
         return None
 
-    # Cache for 30 days — year data never changes
-    await cache_set(cache_key, str(year) if year else "null", 86400 * 30)
+    # Cache for 7 days
+    await cache_set(cache_key, str(year) if year else "null", 86400 * 7)
     logger.debug(f"AniList year for {anilist_id}: {year}")
     return year
