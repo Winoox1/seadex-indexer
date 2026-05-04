@@ -1,0 +1,134 @@
+from datetime import datetime, timezone
+from xml.sax.saxutils import escape
+
+
+def _caps_xml(mode: str) -> str:
+    """Return the capabilities XML for either 'sonarr' or 'radarr' mode."""
+    if mode == "sonarr":
+        title = "SeaDex Sonarr"
+        searching = """
+    <search available="yes" supportedParams="q"/>
+    <tv-search available="yes" supportedParams="q,tvdbid,season,ep"/>
+    <movie-search available="no" supportedParams=""/>
+    <music-search available="no" supportedParams=""/>
+    <audio-search available="no" supportedParams=""/>
+    <book-search available="no" supportedParams=""/>"""
+        categories = """
+    <category id="5000" name="TV">
+      <subcat id="5070" name="Anime"/>
+    </category>"""
+    else:
+        title = "SeaDex Radarr"
+        searching = """
+    <search available="yes" supportedParams="q"/>
+    <tv-search available="no" supportedParams=""/>
+    <movie-search available="yes" supportedParams="q,tmdbid,imdbid"/>
+    <music-search available="no" supportedParams=""/>
+    <audio-search available="no" supportedParams=""/>
+    <book-search available="no" supportedParams=""/>"""
+        categories = """
+    <category id="2000" name="Movies">
+      <subcat id="2070" name="Anime"/>
+    </category>"""
+
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<caps>
+  <server version="1.1" title="{title}" strapline="Best anime releases via SeaDex" url="https://releases.moe"/>
+  <limits max="100" default="50"/>
+  <registration available="no" open="no"/>
+  <searching>{searching}
+  </searching>
+  <categories>{categories}
+  </categories>
+</caps>"""
+
+
+def _prowlarr_test_xml(mode: str) -> str:
+    """Return a minimal valid RSS feed for Prowlarr health checks."""
+    cat = "5070" if mode == "sonarr" else "2070"
+    title = "SeaDex Sonarr Indexer" if mode == "sonarr" else "SeaDex Radarr Indexer"
+    dummy_title = "Fullmetal Alchemist Brotherhood [SeaDexBest]" if mode == "sonarr" \
+        else "Sword of the Stranger [SeaDexBest]"
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:torznab="http://torznab.com/schemas/2015/feed">
+  <channel>
+    <title>{title}</title>
+    <link>https://releases.moe</link>
+    <description>Best anime releases via SeaDex</description>
+    <item>
+      <title><![CDATA[{dummy_title}]]></title>
+      <guid>https://nyaa.si/download/1.torrent</guid>
+      <comments>https://nyaa.si/view/1</comments>
+      <link>https://nyaa.si/download/1.torrent</link>
+      <pubDate>Mon, 01 Jan 2024 00:00:00 GMT</pubDate>
+      <enclosure url="https://nyaa.si/download/1.torrent" length="1000000000" type="application/x-bittorrent"/>
+      <torznab:attr name="category" value="{cat}"/>
+      <torznab:attr name="seeders" value="100"/>
+      <torznab:attr name="peers" value="100"/>
+      <torznab:attr name="downloadvolumefactor" value="0"/>
+      <torznab:attr name="uploadvolumefactor" value="1"/>
+    </item>
+  </channel>
+</rss>"""
+
+
+def _empty_xml(mode: str) -> str:
+    title = "SeaDex Sonarr Indexer" if mode == "sonarr" else "SeaDex Radarr Indexer"
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:torznab="http://torznab.com/schemas/2015/feed">
+  <channel>
+    <title>{title}</title>
+    <link>https://releases.moe</link>
+    <description>Best anime releases via SeaDex</description>
+  </channel>
+</rss>"""
+
+
+def _build_item(t: dict, mode: str) -> str:
+    cat = "5070" if mode == "sonarr" else "2070"
+    seadex_tag = "[SeaDexBest]" if t["best"] else "[SeaDexAlt]"
+    tag_str = " ".join(f"[{tag}]" for tag in t.get("tags", []))
+    full_title = f"{t['title']} {seadex_tag}"
+    if tag_str:
+        full_title += f" {tag_str}"
+
+    hash_attr = (
+        f'\n      <torznab:attr name="infohash" value="{t["hash"]}"/>'
+        if t.get("hash")
+        else ""
+    )
+
+    return f"""
+    <item>
+      <title><![CDATA[{full_title}]]></title>
+      <guid>{escape(t['viewUrl'])}</guid>
+      <comments>{escape(t['viewUrl'])}</comments>
+      <link>{escape(t['link'])}</link>
+      <pubDate>{t['pubDate']}</pubDate>
+      <enclosure url="{escape(t['link'])}" length="{t['size']}" type="application/x-bittorrent"/>
+      <torznab:attr name="category" value="{cat}"/>
+      <torznab:attr name="seeders" value="{t['seeders']}"/>
+      <torznab:attr name="peers" value="{t['peers']}"/>{hash_attr}
+      <torznab:attr name="downloadvolumefactor" value="0"/>
+      <torznab:attr name="uploadvolumefactor" value="1"/>
+    </item>"""
+
+
+def build_results_xml(torrents: list[dict], mode: str) -> str:
+    title = "SeaDex Sonarr Indexer" if mode == "sonarr" else "SeaDex Radarr Indexer"
+    items = "".join(_build_item(t, mode) for t in torrents if t.get("title") and t.get("link"))
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:torznab="http://torznab.com/schemas/2015/feed">
+  <channel>
+    <title>{title}</title>
+    <link>https://releases.moe</link>
+    <description>Best anime releases via SeaDex</description>
+    {items}
+  </channel>
+</rss>"""
+
+
+# Public exports
+caps_xml = _caps_xml
+prowlarr_test_xml = _prowlarr_test_xml
+empty_xml = _empty_xml
