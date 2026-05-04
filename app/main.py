@@ -90,10 +90,6 @@ async def _resolve_anilist_ids_radarr(
     return ids
 
 
-async def _get_cached_result(cache_key: str) -> Optional[str]:
-    return await cache_get(cache_key)
-
-
 async def _search_and_build(anilist_ids: list[int], mode: str) -> str:
     """Run the full SeaDex -> Nyaa pipeline and return Torznab XML."""
     t0 = time.monotonic()
@@ -160,7 +156,7 @@ async def sonarr_api(
         return xml_response(torznab.empty_xml("sonarr"))
 
     cache_key = f"seadex:result:al:{anilist_ids[0]}:s{season}"
-    cached = await _get_cached_result(cache_key)
+    cached = await cache_get(cache_key)
     if cached:
         logger.info(f"Cache hit: sonarr anilist={anilist_ids[0]} s={season}")
         return xml_response(cached)
@@ -201,7 +197,7 @@ async def radarr_api(
         return xml_response(torznab.empty_xml("radarr"))
 
     cache_key = f"seadex:result:radarr:al:{anilist_ids[0]}"
-    cached = await _get_cached_result(cache_key)
+    cached = await cache_get(cache_key)
     if cached:
         logger.info(f"Cache hit: radarr anilist={anilist_ids[0]}")
         return xml_response(cached)
