@@ -27,8 +27,4 @@ class Settings(BaseSettings):
     seadex_base_url: str = "https://releases.moe/api"
     seadex_timeout: int = 15
 
-    class Config:
-        env_prefix = "SEADEX_"
-
-
 settings = Settings()

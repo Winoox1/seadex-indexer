@@ -23,13 +23,13 @@ A Prowlarr Torznab indexer that serves the best releases according to **[SeaDex]
       - 3232:3232
     environment:
       # Point this at your existing Redis instance
-      - SEADEX_REDIS_URL=redis://your-redis-host:6379
+      - REDIS_URL=redis://your-redis-host:6379
       # Optional overrides:
-      # - SEADEX_PORT=3232
-      # - SEADEX_RESULT_CACHE_TTL=21600
-      # - SEADEX_MAPPING_CACHE_TTL=86400
-      # - SEADEX_NYAA_BATCH_INTERVAL=1.0
-      # - SEADEX_LOG_LEVEL=INFO
+      # - PORT=3232
+      # - RESULT_CACHE_TTL=21600
+      # - MAPPING_CACHE_TTL=86400
+      # - NYAA_BATCH_INTERVAL=1.0
+      # - LOG_LEVEL=INFO
     restart: unless-stopped
 ```
 
@@ -72,17 +72,15 @@ Create Custom Formats matching these title tags for scoring. The `[SeaDexBest]` 
 
 ## Configuration
 
-All settings use the `SEADEX_` prefix:
-
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SEADEX_PORT` | `3232` | HTTP port |
-| `SEADEX_REDIS_URL` | `redis://localhost:6379` | Redis connection URL |
-| `SEADEX_RESULT_CACHE_TTL` | `21600` | Result cache TTL (seconds) |
-| `SEADEX_MAPPING_CACHE_TTL` | `86400` | AniBridge mapping cache TTL (seconds) |
-| `SEADEX_NYAA_BATCH_INTERVAL` | `1.0` | Delay between Nyaa requests (seconds) |
-| `SEADEX_LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
-| `SEADEX_ANIBRIDGE_MAPPINGS_URL` | `github.com/anibridge/anibridge-mappings/releases/latest/download/mappings.min.json` | URL to AniBridge mappings JSON |
+| `PORT` | `3232` | HTTP port |
+| `REDIS_URL` | `redis://localhost:6379` | Redis connection URL |
+| `RESULT_CACHE_TTL` | `21600` | Result cache TTL (seconds) |
+| `MAPPING_CACHE_TTL` | `86400` | AniBridge mapping cache TTL (seconds) |
+| `NYAA_BATCH_INTERVAL` | `1.0` | Delay between Nyaa requests (seconds) |
+| `LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+| `ANIBRIDGE_MAPPINGS_URL` | `github.com/anibridge/anibridge-mappings/releases/latest/download/mappings.min.json` | URL to AniBridge mappings JSON |
 
 ## Health Check
 

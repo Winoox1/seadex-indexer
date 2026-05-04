@@ -2,17 +2,18 @@ services:
   seadex-indexer:
     build: .
     # Or use pre-built image once published:
-    # image: ghcr.io/yourusername/seadex-indexer:latest
+    # image: ghcr.io/winoox1/seadex-indexer:latest
     container_name: seadex-indexer
     restart: unless-stopped
     ports:
       - "3232:3232"
     environment:
       # Point this at your existing Redis instance
-      - SEADEX_REDIS_URL=redis://your-redis-host:6379
+      - REDIS_URL=redis://your-redis-host:6379
 
       # Optional overrides (all have sensible defaults)
-      # - SEADEX_PORT=3232
-      # - SEADEX_RESULT_CACHE_TTL=21600       # 6 hours
-      # - SEADEX_MAPPING_CACHE_TTL=86400      # 24 hours
-      # - SEADEX_NYAA_BATCH_INTERVAL=1.0      # seconds between Nyaa requests
+      # - PORT=3232
+      # - RESULT_CACHE_TTL=21600       # 6 hours
+      # - MAPPING_CACHE_TTL=86400      # 24 hours
+      # - NYAA_BATCH_INTERVAL=1.0      # seconds between Nyaa requests
+      # - LOG_LEVEL=INFO

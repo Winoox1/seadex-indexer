@@ -21,29 +21,43 @@ async def query_seadex(anilist_ids: list[int]) -> list[dict]:
     filter_str = "||".join(f"alID={al_id}" for al_id in anilist_ids)
     logger.debug(f"SeaDex filter: {filter_str}")
 
-    params = {
-        "filter": filter_str,
-        "expand": "trs",  # trs = torrent records relation
-        "perPage": "50",
-    }
+    all_items: list[dict] = []
+    page = 1
 
     try:
         async with httpx.AsyncClient(timeout=settings.seadex_timeout) as client:
-            resp = await client.get(
-                f"{settings.seadex_base_url}/collections/entries/records",
-                params=params,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            items = data.get("items", [])
-            logger.debug(f"SeaDex returned {len(items)} entries")
-            return items
+            while True:
+                params = {
+                    "filter": filter_str,
+                    "expand": "trs",  # trs = torrent records relation
+                    "perPage": "50",
+                    "page": str(page),
+                }
+                resp = await client.get(
+                    f"{settings.seadex_base_url}/collections/entries/records",
+                    params=params,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                items = data.get("items", [])
+                all_items.extend(items)
+
+                total_pages = data.get("totalPages", 1)
+                logger.debug(f"SeaDex page {page}/{total_pages}: {len(items)} entries")
+
+                if page >= total_pages:
+                    break
+                page += 1
+
     except httpx.HTTPStatusError as e:
         logger.error(f"SeaDex HTTP error: {e.response.status_code} - {e.response.text[:200]}")
         return []
     except Exception as e:
         logger.error(f"SeaDex request failed: {e}")
         return []
+
+    logger.debug(f"SeaDex returned {len(all_items)} entries total")
+    return all_items
 
 
 def extract_nyaa_torrents(entries: list[dict]) -> list[dict]:

@@ -33,16 +33,16 @@ docker compose up --build
 
 ## Configuration
 
-All settings are in [app/config.py](app/config.py) via `pydantic-settings`. Every field is overridable with a `SEADEX_` env prefix:
+All settings are in [app/config.py](app/config.py) via `pydantic-settings`. Every field is overridable as an env var matching the field name in uppercase:
 
 | Env var | Default | Description |
 |---|---|---|
-| `SEADEX_PORT` | `3232` | Uvicorn listen port |
-| `SEADEX_REDIS_URL` | `redis://localhost:6379` | Redis connection |
-| `SEADEX_RESULT_CACHE_TTL` | `21600` | Search result cache (seconds) |
-| `SEADEX_MAPPING_CACHE_TTL` | `86400` | AniBridge mapping cache (seconds) |
-| `SEADEX_NYAA_BATCH_INTERVAL` | `1.0` | Delay between Nyaa requests (rate limiting) |
-| `SEADEX_LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+| `PORT` | `3232` | Uvicorn listen port |
+| `REDIS_URL` | `redis://localhost:6379` | Redis connection |
+| `RESULT_CACHE_TTL` | `21600` | Search result cache (seconds) |
+| `MAPPING_CACHE_TTL` | `86400` | AniBridge mapping cache (seconds) |
+| `NYAA_BATCH_INTERVAL` | `1.0` | Delay between Nyaa requests (rate limiting) |
+| `LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 
 ## Architecture
 
