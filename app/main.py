@@ -153,7 +153,7 @@ async def sonarr_api(
         logger.info(f"sonarr tvdb={tvdbid} s={season} — no AniList mapping")
         return xml_response(torznab.empty_xml("sonarr"))
 
-    cache_key = f"seadex:result:al:{anilist_ids[0]}:s{season}"
+    cache_key = f"seadex:result:sonarr:al:{anilist_ids[0]}"
     cached = await cache_get(cache_key)
     if cached:
         logger.info(f"Cache hit: sonarr anilist={anilist_ids[0]} s={season}")

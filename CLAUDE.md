@@ -136,4 +136,4 @@ Download link is constructed as `https://nyaa.si/download/<id>.torrent` — it i
 ### Caching strategy
 
 - AniBridge mappings: cached in Redis under `seadex:anibridge_mappings`, also held in-memory.
-- Search results: cached under `seadex:result:al:<id>:s<season>` (Sonarr) or `seadex:result:radarr:al:<id>` (Radarr).
+- Search results: cached under `seadex:result:sonarr:al:<id>` (Sonarr) or `seadex:result:radarr:al:<id>` (Radarr) — AniList ID uniquely identifies the season.
