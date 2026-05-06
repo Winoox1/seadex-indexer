@@ -28,12 +28,6 @@ A Prowlarr Torznab indexer that serves the best releases according to **[SeaDex]
     environment:
       # Point this at your existing Redis instance
       - REDIS_URL=redis://your-redis-host:6379
-      # Optional overrides:
-      # - PORT=3232
-      # - RESULT_CACHE_TTL=21600
-      # - MAPPING_CACHE_TTL=86400
-      # - NYAA_BATCH_INTERVAL=1.0
-      # - LOG_LEVEL=INFO
     restart: unless-stopped
 ```
 
@@ -90,24 +84,35 @@ Create Custom Formats matching these title tags for scoring. The `[SeaDexBest]` 
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `3232` | Port the server listens on inside the container. |
+| `PORT` | `3232` | Port the server listens on inside the container |
 | `REDIS_URL` | `redis://localhost:6379` | Redis connection URL |
-| `RESULT_CACHE_TTL` | `21600` | Result cache TTL (seconds) |
+| `RESULT_CACHE_TTL` | `21600` | Search result cache TTL (seconds) |
+| `NEGATIVE_CACHE_TTL` | `3600` | Cache TTL for shows with no SeaDex entry |
 | `MAPPING_CACHE_TTL` | `86400` | AniBridge mapping cache TTL (seconds) |
-| `NYAA_BATCH_INTERVAL` | `1.0` | Delay between Nyaa requests (seconds) |
+| `NYAA_BATCH_INTERVAL` | `1.0` | Minimum gap between Nyaa request starts (seconds) |
+| `NYAA_CONCURRENCY` | `2` | Max simultaneous Nyaa fetches — request rate never exceeds `1 / NYAA_BATCH_INTERVAL` regardless of this value |
 | `LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 
-## Health Check
+## Endpoints
 
-​```
+### Health check
+
+```
 GET /health
-​```
+```
 
-Returns:
-​```json
-{"status": "ok", "mappings_loaded": true}
-​```
+Returns `{"status": "ok", "mappings_loaded": true}`.
 
-- `status` is always `ok` if the app is running — it does not check Redis or external services.
-- `mappings_loaded` indicates whether the AniBridge ID mapping indexes are populated in memory. If `false`, the app is still starting up or the initial mapping fetch failed — all searches will return empty results until this is `true`.
+- `status` is always `ok` if the app is running — does not check Redis or external services.
+- `mappings_loaded` is `false` if the app is still starting up or the initial mapping fetch failed — searches will return empty results until `true`.
 
+### Debug
+
+```
+GET /debug
+GET /debug?tvdb=357492&season=1
+GET /debug?tmdb=283984
+GET /debug?imdb=tt4054952
+```
+
+Returns mapping index counts and last refresh time. Pass `tvdb`+`season`, `tmdb`, or `imdb` to see what AniList IDs a given ID resolves to.

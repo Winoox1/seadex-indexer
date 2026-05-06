@@ -161,7 +161,8 @@ async def sonarr_api(
 
     logger.info(f"sonarr tvdb={tvdbid} s={season} -> anilist={anilist_ids}")
     xml = await _search_and_build(anilist_ids, "sonarr", season)
-    await cache_set(cache_key, xml, settings.result_cache_ttl)
+    ttl = settings.negative_cache_ttl if xml == torznab.empty_xml("sonarr") else settings.result_cache_ttl
+    await cache_set(cache_key, xml, ttl)
     return xml_response(xml)
 
 
@@ -203,7 +204,8 @@ async def radarr_api(
     year = await anilist.fetch_year(anilist_ids[0])
     logger.info(f"radarr tmdb={tmdbid} imdb={imdbid} -> anilist={anilist_ids} year={year}")
     xml = await _search_and_build(anilist_ids, "radarr", year=year)
-    await cache_set(cache_key, xml, settings.result_cache_ttl)
+    ttl = settings.negative_cache_ttl if xml == torznab.empty_xml("radarr") else settings.result_cache_ttl
+    await cache_set(cache_key, xml, ttl)
     return xml_response(xml)
 
 
@@ -215,3 +217,37 @@ async def health():
         "status": "ok",
         "mappings_loaded": mapping.is_loaded(),
     }
+
+
+# ── Debug endpoint ───────────────────────────────────────────────────────────────
+
+@app.get("/debug")
+async def debug(
+    tvdb: Optional[int] = None,
+    season: Optional[int] = None,
+    tmdb: Optional[int] = None,
+    imdb: Optional[str] = None,
+):
+    result = {"mappings": mapping.stats()}
+
+    if tvdb is not None and season is not None:
+        result["lookup"] = {
+            "type": "tvdb",
+            "tvdb": tvdb,
+            "season": season,
+            "anilist_ids": mapping.lookup_tvdb(tvdb, season),
+        }
+    elif tmdb is not None:
+        result["lookup"] = {
+            "type": "tmdb",
+            "tmdb": tmdb,
+            "anilist_ids": mapping.lookup_tmdb_movie(tmdb),
+        }
+    elif imdb is not None:
+        result["lookup"] = {
+            "type": "imdb",
+            "imdb": imdb,
+            "anilist_ids": mapping.lookup_imdb_movie(imdb),
+        }
+
+    return result

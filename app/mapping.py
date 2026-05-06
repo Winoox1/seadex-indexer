@@ -14,6 +14,7 @@ We build two reverse indexes at startup:
 import json
 import logging
 import re
+from datetime import datetime, timezone
 from typing import Dict, Optional, Set
 
 import httpx
@@ -37,6 +38,7 @@ _IMDB_MOVIE_RE = re.compile(r"^imdb_movie:(tt\d+)$")
 _ANILIST_RE = re.compile(r"^anilist:(\d+)$")
 
 CACHE_KEY = "seadex:anibridge_mappings"
+_last_refresh: Optional[str] = None
 
 
 def _build_indexes(data: dict) -> None:
@@ -131,6 +133,8 @@ async def load_mappings(force: bool = False) -> None:
             try:
                 data = json.loads(cached)
                 _build_indexes(data)
+                global _last_refresh
+                _last_refresh = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
                 logger.info("AniBridge mappings loaded from Redis cache")
                 return
             except Exception as e:
@@ -146,6 +150,8 @@ async def load_mappings(force: bool = False) -> None:
     data = json.loads(raw)
     await cache_set(CACHE_KEY, raw, settings.mapping_cache_ttl)
     _build_indexes(data)
+    global _last_refresh
+    _last_refresh = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     logger.info("AniBridge mappings fetched and cached")
 
 
@@ -172,3 +178,12 @@ def lookup_imdb_movie(imdb_id: str) -> list[int]:
 
 def is_loaded() -> bool:
     return bool(_tvdb_index or _tmdb_movie_index or _imdb_movie_index)
+
+
+def stats() -> dict:
+    return {
+        "tvdb_entries": len(_tvdb_index),
+        "tmdb_movie_entries": len(_tmdb_movie_index),
+        "imdb_movie_entries": len(_imdb_movie_index),
+        "last_refresh": _last_refresh,
+    }

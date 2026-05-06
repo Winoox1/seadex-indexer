@@ -98,16 +98,28 @@ def _scrape_html(html: str, nyaa_id: str, meta: dict) -> Optional[dict]:
     }
 
 
-async def fetch_torrent_info(meta: dict) -> Optional[dict]:
-    """Fetch and parse a single Nyaa torrent page."""
+async def _fetch_one(
+    meta: dict,
+    client: httpx.AsyncClient,
+    sem: asyncio.Semaphore,
+    pacer_lock: asyncio.Lock,
+    last_start: list[float],
+) -> Optional[dict]:
+    """Acquire rate-limit slot then fetch and parse one Nyaa page."""
     nyaa_id = meta["nyaaId"]
     url = f"https://nyaa.si/view/{nyaa_id}"
-    logger.debug(f"Fetching Nyaa page: {url}")
 
-    try:
-        async with httpx.AsyncClient(
-            timeout=settings.nyaa_timeout, follow_redirects=True
-        ) as client:
+    async with sem:
+        # Enforce minimum gap between request starts globally
+        async with pacer_lock:
+            now = asyncio.get_event_loop().time()
+            wait = (last_start[0] + settings.nyaa_batch_interval) - now
+            if wait > 0:
+                await asyncio.sleep(wait)
+            last_start[0] = asyncio.get_event_loop().time()
+
+        logger.debug(f"Fetching Nyaa page: {url}")
+        try:
             resp = await client.get(url)
             resp.raise_for_status()
             result = _scrape_html(resp.text, nyaa_id, meta)
@@ -118,25 +130,28 @@ async def fetch_torrent_info(meta: dict) -> Optional[dict]:
                     f"hash={result['hash'][:8] + '...' if result['hash'] else 'none'}"
                 )
             return result
-    except httpx.HTTPStatusError as e:
-        logger.warning(f"Nyaa HTTP error for {nyaa_id}: {e.response.status_code}")
-        return None
-    except Exception as e:
-        logger.warning(f"Nyaa fetch failed for {nyaa_id}: {e}")
-        return None
+        except httpx.HTTPStatusError as e:
+            logger.warning(f"Nyaa HTTP error for {nyaa_id}: {e.response.status_code}")
+            return None
+        except Exception as e:
+            logger.warning(f"Nyaa fetch failed for {nyaa_id}: {e}")
+            return None
 
 
 async def fetch_all_torrents(metas: list[dict]) -> list[dict]:
     """
-    Fetch all Nyaa torrent pages sequentially with a delay between requests
-    to avoid rate limiting.
+    Fetch Nyaa torrent pages with bounded concurrency and a global rate limit
+    on request starts. Up to nyaa_concurrency fetches run in parallel, but
+    no two requests start less than nyaa_batch_interval seconds apart.
     """
-    results = []
-    for i, meta in enumerate(metas):
-        if i > 0:
-            await asyncio.sleep(settings.nyaa_batch_interval)
-        info = await fetch_torrent_info(meta)
-        if info:
-            results.append(info)
+    sem = asyncio.Semaphore(settings.nyaa_concurrency)
+    pacer_lock = asyncio.Lock()
+    last_start: list[float] = [0.0]
+
+    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+        tasks = [_fetch_one(meta, client, sem, pacer_lock, last_start) for meta in metas]
+        raw = await asyncio.gather(*tasks)
+
+    results = [r for r in raw if r is not None]
     logger.info(f"Nyaa: fetched {len(results)}/{len(metas)} torrent pages")
     return results

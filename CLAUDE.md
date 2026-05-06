@@ -41,7 +41,8 @@ All settings are in [app/config.py](app/config.py) via `pydantic-settings`. Ever
 | `REDIS_URL` | `redis://localhost:6379` | Redis connection |
 | `RESULT_CACHE_TTL` | `21600` | Search result cache (seconds) |
 | `MAPPING_CACHE_TTL` | `86400` | AniBridge mapping cache (seconds) |
-| `NYAA_BATCH_INTERVAL` | `1.0` | Delay between Nyaa requests (rate limiting) |
+| `NYAA_BATCH_INTERVAL` | `1.0` | Minimum gap between Nyaa request starts (seconds) |
+| `NYAA_CONCURRENCY` | `2` | Max simultaneous Nyaa fetches — start gap is enforced globally so rate never exceeds `1/NYAA_BATCH_INTERVAL` Hz |
 | `LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 
 AniBridge mappings URL is hardcoded to the latest release and is not configurable.
