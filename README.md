@@ -90,7 +90,7 @@ Create Custom Formats matching these title tags for scoring. The `[SeaDexBest]` 
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `3232` | HTTP port |
+| `PORT` | `3232` | Port the server listens on inside the container. |
 | `REDIS_URL` | `redis://localhost:6379` | Redis connection URL |
 | `RESULT_CACHE_TTL` | `21600` | Result cache TTL (seconds) |
 | `MAPPING_CACHE_TTL` | `86400` | AniBridge mapping cache TTL (seconds) |
