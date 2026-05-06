@@ -87,7 +87,7 @@ Create Custom Formats matching these title tags for scoring. The `[SeaDexBest]` 
 | `PORT` | `3232` | Port the server listens on inside the container |
 | `REDIS_URL` | `redis://localhost:6379` | Redis connection URL |
 | `RESULT_CACHE_TTL` | `21600` | Search result cache TTL (seconds) |
-| `NEGATIVE_CACHE_TTL` | `3600` | Cache TTL for shows with no SeaDex entry |
+| `NEGATIVE_CACHE_TTL` | `3600` | Cache TTL for shows with no SeaDex entry (seconds) |
 | `MAPPING_CACHE_TTL` | `86400` | AniBridge mapping cache TTL (seconds) |
 | `NYAA_BATCH_INTERVAL` | `1.0` | Minimum gap between Nyaa request starts (seconds) |
 | `NYAA_CONCURRENCY` | `2` | Max simultaneous Nyaa fetches — request rate never exceeds `1 / NYAA_BATCH_INTERVAL` regardless of this value |

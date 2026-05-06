@@ -127,13 +127,14 @@ def _build_indexes(data: dict) -> None:
 
 async def load_mappings(force: bool = False) -> None:
     """Load mappings from Redis cache or fetch from AniBridge."""
+    global _last_refresh
+
     if not force:
         cached = await cache_get(CACHE_KEY)
         if cached:
             try:
                 data = json.loads(cached)
                 _build_indexes(data)
-                global _last_refresh
                 _last_refresh = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
                 logger.info("AniBridge mappings loaded from Redis cache")
                 return
@@ -150,7 +151,6 @@ async def load_mappings(force: bool = False) -> None:
     data = json.loads(raw)
     await cache_set(CACHE_KEY, raw, settings.mapping_cache_ttl)
     _build_indexes(data)
-    global _last_refresh
     _last_refresh = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     logger.info("AniBridge mappings fetched and cached")
 
