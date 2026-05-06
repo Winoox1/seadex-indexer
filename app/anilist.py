@@ -3,8 +3,6 @@ from typing import Optional
 
 import httpx
 
-from .cache import cache_get, cache_set
-
 logger = logging.getLogger(__name__)
 
 _GRAPHQL_URL = "https://graphql.anilist.co"
@@ -18,13 +16,7 @@ query ($id: Int) {
 
 
 async def fetch_year(anilist_id: int) -> Optional[int]:
-    """Return the start year for an AniList entry, using Redis cache."""
-    cache_key = f"seadex:year:{anilist_id}"
-
-    cached = await cache_get(cache_key)
-    if cached:
-        return int(cached) if cached != "null" else None
-
+    """Return the start year for an AniList entry."""
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(
@@ -38,7 +30,5 @@ async def fetch_year(anilist_id: int) -> Optional[int]:
         logger.warning(f"AniList year fetch failed for {anilist_id}: {e}")
         return None
 
-    # Cache for 7 days
-    await cache_set(cache_key, str(year) if year else "null", 86400 * 7)
     logger.debug(f"AniList year for {anilist_id}: {year}")
     return year
