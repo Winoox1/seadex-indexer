@@ -10,11 +10,14 @@ A Prowlarr Torznab indexer that serves the best releases according to **[SeaDex]
 - **Sonarr** (`/sonarr/api`) — TVDB ID + season → AniList → SeaDex → Nyaa
 - **Radarr** (`/radarr/api`) — TMDB/IMDB ID → AniList → SeaDex → Nyaa
 - **Redis caching** — 6-hour result cache, 24-hour mapping cache, must host your own instance of Redis
-- **Relase Title enchancements** — Adds `[SeaDexBest]`, `[SeaDexAlt]`, and all SeaDex compatibility tags, aditionally will add the season number sent by Sonarr as SXX if its not present already, for Radarr a year will be added if not present yet by fetching it from AniList
-- **Season Packs only** — As SeaDex only categorises full Season Packs, this indexer will also only return full Season Packs no matter if a season or episode search is done
+- **Release Title Enhancements** — Adds `[SeaDexBest]`, `[SeaDexAlt]`, and all SeaDex compatibility tags, additionally will add the season number sent by Sonarr as SXX if it's not present already, for Radarr a year will be added if not present yet by fetching it from AniList
+- **Full Seasons only** — As SeaDex only categorises full Seasons, this indexer will also only return full Seasons, no matter if a season or episode search is done
 
-> [!IMPORTANT]  
-> **Specials not supported** — Sonarr does not send enough information to reliably identify a specials search, so specials searches will return no results
+> [!TIP]
+> Setting most series to **Standard** type in Sonarr is recommended over Anime type, it results in much faster searches. Most modern anime is released in the `SxxEyy` format which makes Standard type a much better fit, use Anime type for older shows like One Piece and Naruto as they are released in the `001` Absolute format.
+
+> [!NOTE]
+> **Specials** — Specials will return results when using Standard series type, but Sonarr will often struggle to match and import them.
 
 
 ## Quick Start Docker Compose
@@ -47,7 +50,7 @@ Add two separate indexers — one for Sonarr, one for Radarr:
 **Optional — restricting to specific app instances via tags:**
 
 > [!IMPORTANT]
-> Tags should be used with caution, they can have unintended effects. An app with a tag will sonly sync with indexers having the same tag.
+> Tags should be used with caution, they can have unintended effects. An app with a tag will only sync with indexers having the same tag.
 
 If you run multiple Sonarr or Radarr instances and want to sync each indexer only to your anime instance, assign tags in Prowlarr:
 

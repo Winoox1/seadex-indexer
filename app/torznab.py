@@ -116,7 +116,7 @@ def _build_item(t: dict, mode: str, season: Optional[int] = None, year: Optional
     tag_str = " ".join(f"[{tag}]" for tag in t.get("tags", []))
 
     title = t["title"]
-    if season is not None and not _SEASON_RE.search(title):
+    if season is not None and season > 0 and not _SEASON_RE.search(title):
         title = _insert_season_tag(title, season)
     if year is not None and not _YEAR_RE.search(title):
         title = _insert_year_tag(title, year)
