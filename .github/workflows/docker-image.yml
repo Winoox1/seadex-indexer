@@ -2,7 +2,8 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ "main", "dev" ]
+    branches: [ "dev" ]
+    tags: [ "v*" ]
 
 jobs:
   build-and-push:
@@ -23,16 +24,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Docker image (main)
-        if: github.ref == 'refs/heads/main'
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: |
-            ghcr.io/winoox1/seadex-indexer:latest
-            ghcr.io/winoox1/seadex-indexer:${{ github.sha }}
-
       - name: Build and push Docker image (dev)
         if: github.ref == 'refs/heads/dev'
         uses: docker/build-push-action@v5
@@ -42,3 +33,13 @@ jobs:
           tags: |
             ghcr.io/winoox1/seadex-indexer:dev
             ghcr.io/winoox1/seadex-indexer:${{ github.sha }}
+
+      - name: Build and push Docker image (release)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/winoox1/seadex-indexer:latest
+            ghcr.io/winoox1/seadex-indexer:${{ github.ref_name }}
