@@ -11,7 +11,7 @@ Huge thanks to the people maintaining **[SeaDex](https://releases.moe)** so it's
 
 - **Sonarr** (`/sonarr/api`) — TVDB ID + season → AniList → SeaDex → Nyaa
 - **Radarr** (`/radarr/api`) — TMDB/IMDB ID → AniList → SeaDex → Nyaa
-- **Redis caching** — 6-hour result cache. Redis must be hosted separately — the app will function without it but every request will hit SeaDex and Nyaa directly (Not recommended).
+- **In-memory caching** — 6-hour result cache to avoid redundant SeaDex and Nyaa requests. Cache is cleared on container restart.
 - **Release Title Enhancements** — Adds `[SeaDexBest]`, `[SeaDexAlt]`, and all SeaDex compatibility tags, and will additionally add the season number sent by Sonarr as SXX if it's not present already, for Radarr a year will be added if not present yet by fetching it from AniList
 - **Full Seasons only** — As SeaDex only categorises full Seasons, this indexer will also only return full Seasons, no matter if a season or episode search is done
 
@@ -30,9 +30,6 @@ Huge thanks to the people maintaining **[SeaDex](https://releases.moe)** so it's
     image: ghcr.io/winoox1/seadex-indexer:latest
     ports:
       - 3232:3232
-    environment:
-      # Point this at your existing Redis instance
-      - REDIS_URL=redis://your-redis-host:6379
     restart: unless-stopped
 ```
 
@@ -90,7 +87,6 @@ Create Custom Formats matching the `[SeaDexBest]` and `[SeaDexAlt]` title tags f
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `3232` | Port the server listens on inside the container |
-| `REDIS_URL` | `redis://localhost:6379` | Redis connection URL |
 | `RESULT_CACHE_TTL` | `21600` | Search result cache TTL (seconds) |
 | `NEGATIVE_CACHE_TTL` | `3600` | Cache TTL for shows with no SeaDex entry (seconds) |
 | `MAPPING_CACHE_TTL` | `86400` | AniBridge mapping cache TTL (seconds) |
@@ -121,3 +117,15 @@ GET /debug?imdb=tt4054952
 ```
 
 Returns mapping index counts and last refresh time. Pass `tvdb`+`season`, `tmdb`, or `imdb` to see what AniList IDs a given ID resolves to.
+
+### Clear cache
+
+```
+POST /cache/clear
+```
+
+Clears all in-memory cached results. Useful after a SeaDex entry is updated and you want fresh results without restarting. Can also be run from inside the container:
+
+```bash
+docker exec seadex-indexer curl -X POST http://localhost:3232/cache/clear
+```

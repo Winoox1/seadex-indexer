@@ -38,7 +38,6 @@ All settings are in [app/config.py](app/config.py) via `pydantic-settings`. Ever
 | Env var | Default | Description |
 |---|---|---|
 | `PORT` | `3232` | Uvicorn listen port |
-| `REDIS_URL` | `redis://localhost:6379` | Redis connection |
 | `RESULT_CACHE_TTL` | `21600` | Search result cache (seconds) |
 | `MAPPING_CACHE_TTL` | `86400` | AniBridge mapping cache (seconds) |
 | `NYAA_BATCH_INTERVAL` | `1.0` | Minimum gap between Nyaa request starts (seconds) |
@@ -68,7 +67,7 @@ Sonarr/Radarr → /sonarr/api or /radarr/api
 - **[app/seadex.py](app/seadex.py)** — Calls the SeaDex PocketBase REST API (`/collections/entries/records`) with an OR filter on AniList IDs and `expand=trs`. Extracts Nyaa torrent references from the expanded `trs` relation, filtering to `nyaa.si/view/` URLs only.
 - **[app/nyaa.py](app/nyaa.py)** — HTML-scrapes individual `nyaa.si/view/<id>` pages to get title, size, seeders, leechers, info hash, and publish date. Requests are sequential with a configurable delay to avoid rate limiting.
 - **[app/torznab.py](app/torznab.py)** — Pure XML builders. Titles are suffixed with `[SeaDexBest]` or `[SeaDexAlt]` based on the `best` flag from SeaDex. Also handles caps responses and Prowlarr health-check pings.
-- **[app/cache.py](app/cache.py)** — Thin async Redis wrapper. All failures are caught and logged; the app continues without caching if Redis is unavailable.
+- **[app/cache.py](app/cache.py)** — In-memory TTL cache backed by a plain Python dict. Synchronous. Expiry is lazy (checked on read). Exposes `cache_get`, `cache_set`, `cache_delete`, and `cache_clear`.
 - **[app/config.py](app/config.py)** — Single `Settings` instance (`settings`) imported everywhere.
 
 ### SeaDex API
@@ -136,5 +135,8 @@ Download link is constructed as `https://nyaa.si/download/<id>.torrent` — it i
 
 ### Caching strategy
 
-- AniBridge mappings: cached in Redis under `seadex:anibridge_mappings`, also held in-memory.
+All caching is in-memory (a plain Python dict with TTL expiry in `app/cache.py`). No external dependencies.
+
+- AniBridge mappings: held in the three in-memory index dicts, re-fetched from AniBridge on startup and every `MAPPING_CACHE_TTL` seconds.
 - Search results: cached under `seadex:result:sonarr:al:<id>` (Sonarr) or `seadex:result:radarr:al:<id>` (Radarr) — AniList ID uniquely identifies the season.
+- Cache can be cleared at runtime via `POST /cache/clear` without restarting.

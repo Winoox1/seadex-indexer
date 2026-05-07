@@ -19,9 +19,6 @@ from typing import Dict, Optional, Set
 
 import httpx
 
-from .cache import cache_get, cache_set
-from .config import settings
-
 logger = logging.getLogger(__name__)
 
 # In-memory indexes built from the mapping file
@@ -37,7 +34,6 @@ _TMDB_MOVIE_RE = re.compile(r"^tmdb_movie:(\d+)$")
 _IMDB_MOVIE_RE = re.compile(r"^imdb_movie:(tt\d+)$")
 _ANILIST_RE = re.compile(r"^anilist:(\d+)$")
 
-CACHE_KEY = "seadex:anibridge_mappings"
 _last_refresh: Optional[str] = None
 
 
@@ -125,21 +121,9 @@ def _build_indexes(data: dict) -> None:
     )
 
 
-async def load_mappings(force: bool = False) -> None:
-    """Load mappings from Redis cache or fetch from AniBridge."""
+async def load_mappings() -> None:
+    """Fetch AniBridge mappings and build in-memory indexes."""
     global _last_refresh
-
-    if not force:
-        cached = await cache_get(CACHE_KEY)
-        if cached:
-            try:
-                data = json.loads(cached)
-                _build_indexes(data)
-                _last_refresh = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-                logger.info("AniBridge mappings loaded from Redis cache")
-                return
-            except Exception as e:
-                logger.warning(f"Failed to parse cached mappings: {e}")
 
     url = "https://github.com/anibridge/anibridge-mappings/releases/latest/download/mappings.min.json"
     logger.info(f"Fetching AniBridge mappings from {url}")
@@ -149,10 +133,9 @@ async def load_mappings(force: bool = False) -> None:
         raw = resp.text
 
     data = json.loads(raw)
-    await cache_set(CACHE_KEY, raw, settings.mapping_cache_ttl)
     _build_indexes(data)
     _last_refresh = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    logger.info("AniBridge mappings fetched and cached")
+    logger.info("AniBridge mappings fetched and built")
 
 
 def lookup_tvdb(tvdb_id: int, season: int) -> list[int]:

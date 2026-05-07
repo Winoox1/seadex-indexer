@@ -6,9 +6,6 @@ class Settings(BaseSettings):
     port: int = 3232
     log_level: str = "INFO"
 
-    # Redis
-    redis_url: str = "redis://localhost:6379"
-
     # Cache TTLs (seconds)
     result_cache_ttl: int = 21600       # 6 hours
     negative_cache_ttl: int = 3600     # 1 hour — for AniList IDs with no SeaDex entry
