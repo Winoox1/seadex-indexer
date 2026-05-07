@@ -3,18 +3,20 @@
 > [!IMPORTANT]
 > **This project was built entirely with AI.** It was made for a personal need, but I decided to share it in case someone else found it useful — use at your own risk. As it wasn't written by me feel free to copy it.
 
-A Prowlarr Torznab indexer that serves the best releases according to **[SeaDex](https://releases.moe)** to Sonarr and Radarr. Uses **[AniBridge mappings](https://github.com/anibridge/anibridge-mappings)**
+A Prowlarr Torznab indexer that serves the best anime releases from **[SeaDex](https://releases.moe)** to Sonarr and Radarr. Uses **[AniBridge mappings](https://github.com/anibridge/anibridge-mappings)** for ID mapping.
+
+Huge thanks to the people maintaining **[SeaDex](https://releases.moe)** so it's easy to grab the best available releases, and to the people maintaining the **[AniBridge mappings](https://github.com/anibridge/anibridge-mappings)** project, this wouldn't be possible without all of their hard work.
 
 ## Features
 
 - **Sonarr** (`/sonarr/api`) — TVDB ID + season → AniList → SeaDex → Nyaa
 - **Radarr** (`/radarr/api`) — TMDB/IMDB ID → AniList → SeaDex → Nyaa
-- **Redis caching** — 6-hour result cache, 24-hour mapping cache, must host your own instance of Redis
-- **Release Title Enhancements** — Adds `[SeaDexBest]`, `[SeaDexAlt]`, and all SeaDex compatibility tags, additionally will add the season number sent by Sonarr as SXX if it's not present already, for Radarr a year will be added if not present yet by fetching it from AniList
+- **Redis caching** — 6-hour result cache. Redis must be hosted separately — the app will function without it but every request will hit SeaDex and Nyaa directly (Not recommended).
+- **Release Title Enhancements** — Adds `[SeaDexBest]`, `[SeaDexAlt]`, and all SeaDex compatibility tags, and will additionally add the season number sent by Sonarr as SXX if it's not present already, for Radarr a year will be added if not present yet by fetching it from AniList
 - **Full Seasons only** — As SeaDex only categorises full Seasons, this indexer will also only return full Seasons, no matter if a season or episode search is done
 
 > [!TIP]
-> Setting most series to **Standard** type in Sonarr is recommended over Anime type, it results in much faster searches. Most modern anime is released in the `SxxEyy` format which makes Standard type a much better fit, use Anime type for older shows like One Piece and Naruto as they are released in the `001` Absolute format.
+> Setting most series to **Standard** type in Sonarr is recommended over Anime type as it results in much faster searches. Most modern anime is released in the `SxxEyy` format which makes Standard type a much better fit. Use Anime type for older shows like One Piece and Naruto as they are released in the `001` Absolute format.
 
 > [!NOTE]
 > **Specials** — Specials will return results when using Standard series type, but Sonarr will often struggle to match and import them.
@@ -59,7 +61,7 @@ If you run multiple Sonarr or Radarr instances and want to sync each indexer onl
 
 ## Sonarr / Radarr Custom Formats
 
-Create Custom Formats matching these title tags for scoring. The `[SeaDexBest]` and `[SeaDexAlt]` tags are always appended. Compatibility tags are appended when present on the SeaDex entry, you can also make Custom Formats to score these if you wish to.
+Create Custom Formats matching the `[SeaDexBest]` and `[SeaDexAlt]` title tags for scoring. Compatibility tags are appended when present on the SeaDex entry and you can also create Custom Formats to score these if you wish.
 
 ### Release Quality Tags
 
@@ -78,7 +80,7 @@ Create Custom Formats matching these title tags for scoring. The `[SeaDexBest]` 
 | `[Dolby Vision]` | Is Dolby Vision Profile 5 which requires a Dolby Vision supported player, device, and screen. Alternatively MPV with an HDR screen. Not meeting this criteria will result in a green/purple image. |
 | `[HDR]` | Requires an HDR screen — Not meeting this criteria will result in a washed out image. Alternatively some players will tonemap, but we recommend getting the SDR release instead. |
 | `[Incomplete]` | Does not contain all episodes — used when it provides better video/subtitle quality for the episodes it does include |
-| `[Misplaced Special]` | Has specials at the top of the file list, often times these specials should be watched after the main series. Make sure you watch in the correct order. | 
+| `[Misplaced Special]` | Has specials at the top of the file list, often these specials should be watched after the main series. Make sure you watch in the correct order. | 
 | `[Patch Required]` | Requires you to download and run a patch in order to fix issues with the release. Generally the community will upload the pre-patched files to avoid this. |
 | `[VFR]` | Has a variable framerate, which means it changes between 24, 30, and even 60fps depending on the scene. In order to display the content correctly your screen should either use VRR or be set to a multiple of 120Hz. |
 | `[YUV444P]` | Is encoded with 4:4:4 chroma which has poor hardware support. Generally it will not work on anything outside of a PC, so if you're using a streaming box/stick you'll want to avoid it. |
