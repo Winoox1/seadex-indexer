@@ -124,8 +124,4 @@ Returns mapping index counts and last refresh time. Pass `tvdb`+`season`, `tmdb`
 POST /cache/clear
 ```
 
-Clears all in-memory cached results. Useful after a SeaDex entry is updated and you want fresh results without restarting. Can also be run from inside the container:
-
-```bash
-docker exec seadex-indexer curl -X POST http://localhost:3232/cache/clear
-```
+Clears all in-memory cached results. Useful after a SeaDex entry is updated and you want fresh results without restarting.
