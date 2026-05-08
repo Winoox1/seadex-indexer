@@ -10,7 +10,7 @@ services:
     environment:
       # Optional overrides (all have sensible defaults)
       # - PORT=3232
-      # - RESULT_CACHE_TTL=21600       # 6 hours
-      # - MAPPING_CACHE_TTL=86400      # 24 hours
+      # - RESULT_CACHE_TTL=7200      # 2 hours
+      # - MAPPING_REFRESH_INTERVAL=86400  # 24 hours
       # - NYAA_BATCH_INTERVAL=1.0      # seconds between Nyaa requests
       # - LOG_LEVEL=INFO

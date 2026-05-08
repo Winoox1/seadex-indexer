@@ -2,6 +2,7 @@ import asyncio
 import logging
 import math
 import re
+from datetime import datetime, timezone
 from typing import Optional
 
 import httpx
@@ -78,7 +79,6 @@ def _scrape_html(html: str, nyaa_id: str, meta: dict) -> Optional[dict]:
     ts_match = re.search(r'data-timestamp="(\d+)"', html)
     pub_date = ""
     if ts_match:
-        from datetime import datetime, timezone
         dt = datetime.fromtimestamp(int(ts_match.group(1)), tz=timezone.utc)
         pub_date = dt.strftime("%a, %d %b %Y %H:%M:%S GMT")
 
