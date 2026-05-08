@@ -9,6 +9,11 @@ _YEAR_RE = re.compile(r"\b(19|20)\d{2}\b")
 _QUALITY_MARKER_RE = re.compile(r"^(\[.*?\]\s*)(.*?)(\s+(?:v\d+|\(|\[))", re.DOTALL)
 _QUALITY_MARKER_NO_GROUP_RE = re.compile(r"^(.*?)(\s+(?:v\d+|\(|\[))", re.DOTALL)
 
+# SeaDex tag rewrites — avoid words Sonarr's parser misinterprets (e.g. "Special" → season 0)
+_TAG_REWRITES = {
+    "Misplaced Special": "Mis-Spec",
+}
+
 
 def _insert_before_quality(title: str, tag: str) -> str:
     m = _QUALITY_MARKER_RE.match(title)
@@ -113,7 +118,7 @@ def _empty_xml(mode: str) -> str:
 def _build_item(t: dict, mode: str, season: Optional[int] = None, year: Optional[int] = None) -> str:
     cat = "5070" if mode == "sonarr" else "2070"
     seadex_tag = "[SeaDexBest]" if t["best"] else "[SeaDexAlt]"
-    tag_str = " ".join(f"[{tag}]" for tag in t.get("tags", []))
+    tag_str = " ".join(f"[{_TAG_REWRITES.get(tag, tag)}]" for tag in t.get("tags", []))
 
     title = t["title"]
     if season is not None and season > 0 and not _SEASON_RE.search(title):

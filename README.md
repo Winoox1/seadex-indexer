@@ -122,7 +122,7 @@ Create Custom Formats matching the `[SeaDexBest]` and `[SeaDexAlt]` title tags f
 | `[Dolby Vision]` | Is Dolby Vision Profile 5 which requires a Dolby Vision supported player, device, and screen. Alternatively MPV with an HDR screen. Not meeting this criteria will result in a green/purple image. |
 | `[HDR]` | Requires an HDR screen — Not meeting this criteria will result in a washed out image. Alternatively some players will tonemap, but we recommend getting the SDR release instead. |
 | `[Incomplete]` | Does not contain all episodes — used when it provides better video/subtitle quality for the episodes it does include |
-| `[Misplaced Special]` | Has specials at the top of the file list, often these specials should be watched after the main series. Make sure you watch in the correct order. | 
+| `[Mis-Spec]` | Has specials at the top of the file list, often these specials should be watched after the main series. Make sure you watch in the correct order. (Renamed from SeaDex's `Misplaced Special` to avoid Sonarr parsing it as a Special) | 
 | `[Patch Required]` | Requires you to download and run a patch in order to fix issues with the release. Generally the community will upload the pre-patched files to avoid this. |
 | `[VFR]` | Has a variable framerate, which means it changes between 24, 30, and even 60fps depending on the scene. In order to display the content correctly your screen should either use VRR or be set to a multiple of 120Hz. |
 | `[YUV444P]` | Is encoded with 4:4:4 chroma which has poor hardware support. Generally it will not work on anything outside of a PC, so if you're using a streaming box/stick you'll want to avoid it. |
@@ -244,19 +244,19 @@ Create Custom Formats matching the `[SeaDexBest]` and `[SeaDexAlt]` title tags f
 }
 ```
 
-**Misplaced Special**
+**Mis-Spec**
 ```json
 {
-  "name": "Misplaced Special",
+  "name": "Mis-Spec",
   "includeCustomFormatWhenRenaming": false,
   "specifications": [
     {
-      "name": "Misplaced special match",
+      "name": "Mis-Spec match",
       "implementation": "ReleaseTitleSpecification",
       "negate": false,
       "required": false,
       "fields": {
-        "value": "(?i)\\[misplaced\\s*special\\]"
+        "value": "(?i)\\[mis-spec\\]"
       }
     }
   ]
