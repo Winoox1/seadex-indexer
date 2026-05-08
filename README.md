@@ -11,7 +11,7 @@ Huge thanks to the people maintaining **[SeaDex](https://releases.moe)** so it's
 
 - **Sonarr** (`/sonarr/api`) — TVDB ID + season → AniList → SeaDex → Nyaa
 - **Radarr** (`/radarr/api`) — TMDB/IMDB ID → AniList → SeaDex → Nyaa
-- **In-memory caching** — 6-hour result cache to avoid redundant SeaDex and Nyaa requests. Cache is cleared on container restart.
+- **In-memory caching** — 2-hour result cache to avoid redundant SeaDex and Nyaa requests. Cache is cleared on container restart.
 - **Release Title Enhancements** — Adds `[SeaDexBest]`, `[SeaDexAlt]`, and all SeaDex compatibility tags, and will additionally add the season number sent by Sonarr as SXX if it's not present already, for Radarr a year will be added if not present yet by fetching it from AniList
 - **Full Seasons only** — As SeaDex only categorises full Seasons, this indexer will also only return full Seasons, no matter if a season or episode search is done
 
@@ -22,7 +22,7 @@ Huge thanks to the people maintaining **[SeaDex](https://releases.moe)** so it's
 > **Specials** — Specials will return results when using Standard series type, but Sonarr will often struggle to match and import them.
 
 
-## Quick Start Docker Compose
+## Docker Compose
 
 ```yaml
   seadex-indexer:
@@ -33,20 +33,33 @@ Huge thanks to the people maintaining **[SeaDex](https://releases.moe)** so it's
     restart: unless-stopped
 ```
 
-```bash
-docker compose up -d
-```
+<details>
+<summary>Advanced Configuration</summary>
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3232` | Port the server listens on inside the container |
+| `RESULT_CACHE_TTL` | `7200` | Search result cache TTL (seconds) |
+| `NEGATIVE_CACHE_TTL` | `7200` | Cache TTL for shows with no SeaDex entry (seconds) |
+| `MAPPING_REFRESH_INTERVAL` | `86400` | How often to re-download AniBridge mappings (seconds) |
+| `NYAA_BATCH_INTERVAL` | `1.0` | Minimum gap between Nyaa request starts (seconds) |
+| `NYAA_CONCURRENCY` | `2` | Max simultaneous Nyaa fetches — request rate never exceeds `1 / NYAA_BATCH_INTERVAL` regardless of this value |
+| `LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+
+</details>
 
 ## Prowlarr Setup
 
 Add two separate indexers — one for Sonarr, one for Radarr:
 
 1. Add indexer → **Generic Torznab**
-2. For Sonarr: URL = `http://seadex-indexer:3232/sonarr`
-3. For Radarr: URL = `http://seadex-indexer:3232/radarr`
-4. Click **Test** and **Save**
+2. Set Indexer name to whatever your like
+3. For Sonarr: URL = `http://seadex-indexer:3232/sonarr`
+4. For Radarr: URL = `http://seadex-indexer:3232/radarr`
+5. Click **Test** and **Save**
 
-**Optional — restricting to specific app instances via tags:**
+<details>
+<summary>Optional — restricting to specific app instances via tags</summary>
 
 > [!IMPORTANT]
 > Tags should be used with caution, they can have unintended effects. An app with a tag will only sync with indexers having the same tag.
@@ -55,6 +68,8 @@ If you run multiple Sonarr or Radarr instances and want to sync each indexer onl
 
 - Add tag `anime` to the Sonarr indexer → set the same tag on your anime Sonarr instance in Prowlarr → Settings → Apps
 - Add tag `anime-movies` to the Radarr indexer → set the same tag on your anime Radarr instance
+
+</details>
 
 ## Sonarr / Radarr Custom Formats
 
@@ -66,6 +81,49 @@ Create Custom Formats matching the `[SeaDexBest]` and `[SeaDexAlt]` title tags f
 |-----|---------|
 | `[SeaDexBest]` | Marked as Best on SeaDex |
 | `[SeaDexAlt]` | Marked as Alt on SeaDex |
+
+<details>
+<summary>Example CFs — SeaDex Best &amp; Alt</summary>
+
+**SeaDex Best**
+```json
+{
+  "name": "SeaDex Best",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "SeaDex best match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[seadex\\s*best\\]"
+      }
+    }
+  ]
+}
+```
+
+**SeaDex Alt**
+```json
+{
+  "name": "SeaDex Alt",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "SeaDex alt match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[seadex\\s*alt\\]"
+      }
+    }
+  ]
+}
+```
+
+</details>
 
 ### Release Compatibility Tags
 
@@ -82,17 +140,200 @@ Create Custom Formats matching the `[SeaDexBest]` and `[SeaDexAlt]` title tags f
 | `[VFR]` | Has a variable framerate, which means it changes between 24, 30, and even 60fps depending on the scene. In order to display the content correctly your screen should either use VRR or be set to a multiple of 120Hz. |
 | `[YUV444P]` | Is encoded with 4:4:4 chroma which has poor hardware support. Generally it will not work on anything outside of a PC, so if you're using a streaming box/stick you'll want to avoid it. |
 
-## Configuration
+<details>
+<summary>Example CFs — Compatibility Tags</summary>
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `3232` | Port the server listens on inside the container |
-| `RESULT_CACHE_TTL` | `21600` | Search result cache TTL (seconds) |
-| `NEGATIVE_CACHE_TTL` | `3600` | Cache TTL for shows with no SeaDex entry (seconds) |
-| `MAPPING_CACHE_TTL` | `86400` | AniBridge mapping cache TTL (seconds) |
-| `NYAA_BATCH_INTERVAL` | `1.0` | Minimum gap between Nyaa request starts (seconds) |
-| `NYAA_CONCURRENCY` | `2` | Max simultaneous Nyaa fetches — request rate never exceeds `1 / NYAA_BATCH_INTERVAL` regardless of this value |
-| `LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+**Broken**
+```json
+{
+  "name": "Broken",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Broken match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[broken\\]"
+      }
+    }
+  ]
+}
+```
+
+**Deband Recommended**
+```json
+{
+  "name": "Deband Recommended",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Deband recommended match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[deband\\s*recommended\\]"
+      }
+    }
+  ]
+}
+```
+
+**Deband Required**
+```json
+{
+  "name": "Deband Required",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Deband required match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[deband\\s*required\\]"
+      }
+    }
+  ]
+}
+```
+
+**Dolby Vision**
+```json
+{
+  "name": "Dolby Vision",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Dolby Vision match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[dolby\\s*vision\\]"
+      }
+    }
+  ]
+}
+```
+
+**HDR**
+```json
+{
+  "name": "HDR",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "HDR match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[hdr\\]"
+      }
+    }
+  ]
+}
+```
+
+**Incomplete**
+```json
+{
+  "name": "Incomplete",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Incomplete match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[incomplete\\]"
+      }
+    }
+  ]
+}
+```
+
+**Misplaced Special**
+```json
+{
+  "name": "Misplaced Special",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Misplaced special match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[misplaced\\s*special\\]"
+      }
+    }
+  ]
+}
+```
+
+**Patch Required**
+```json
+{
+  "name": "Patch Required",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Patch required match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[patch\\s*required\\]"
+      }
+    }
+  ]
+}
+```
+
+**VFR**
+```json
+{
+  "name": "VFR",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "VFR match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[vfr\\]"
+      }
+    }
+  ]
+}
+```
+
+**YUV444P**
+```json
+{
+  "name": "YUV444P",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "YUV444P match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[yuv444p\\]"
+      }
+    }
+  ]
+}
+```
+
+</details>
 
 ## Endpoints
 
@@ -104,7 +345,8 @@ GET /health
 
 Returns `{"status": "ok", "mappings_loaded": true}`.
 
-- `status` is always `ok` if the app is running — does not check Redis or external services.
+- `status` is always `ok` if the app is running
+
 - `mappings_loaded` is `false` if the app is still starting up or the initial mapping fetch failed — searches will return empty results until `true`.
 
 ### Debug

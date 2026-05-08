@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI):
     # Background refresh task
     async def refresh_loop():
         while True:
-            await asyncio.sleep(settings.mapping_cache_ttl)
+            await asyncio.sleep(settings.mapping_refresh_interval)
             try:
                 await mapping.load_mappings()
                 logger.info("AniBridge mappings refreshed")
