@@ -16,10 +16,6 @@ A Torznab-compatible indexer that bridges **SeaDex** (curated anime release data
 # Install dependencies
 pip install -r requirements.txt
 
-# Start Redis for local testing (optional — app will start without it,
-# but every request will hit SeaDex and Nyaa directly with no caching)
-docker run -d -p 6379:6379 redis:7-alpine
-
 # Run the server (default port 3232)
 python run.py
 ```
@@ -27,7 +23,6 @@ python run.py
 ## Docker
 
 ```bash
-# Build and run (users are expected to provide their own Redis instance)
 docker compose up --build
 ```
 
@@ -38,10 +33,10 @@ All settings are in [app/config.py](app/config.py) via `pydantic-settings`. Ever
 | Env var | Default | Description |
 |---|---|---|
 | `PORT` | `3232` | Uvicorn listen port |
-| `REDIS_URL` | `redis://localhost:6379` | Redis connection |
-| `RESULT_CACHE_TTL` | `21600` | Search result cache (seconds) |
-| `MAPPING_CACHE_TTL` | `86400` | AniBridge mapping cache (seconds) |
-| `NYAA_BATCH_INTERVAL` | `1.0` | Delay between Nyaa requests (rate limiting) |
+| `RESULT_CACHE_TTL` | `7200` | Search result cache (seconds) |
+| `MAPPING_REFRESH_INTERVAL` | `86400` | How often to re-download AniBridge mappings (seconds) |
+| `NYAA_BATCH_INTERVAL` | `1.0` | Minimum gap between Nyaa request starts (seconds) |
+| `NYAA_CONCURRENCY` | `2` | Max simultaneous Nyaa fetches — start gap is enforced globally so rate never exceeds `1/NYAA_BATCH_INTERVAL` Hz |
 | `LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 
 AniBridge mappings URL is hardcoded to the latest release and is not configurable.
@@ -53,21 +48,21 @@ AniBridge mappings URL is hardcoded to the latest release and is not configurabl
 ```
 Sonarr/Radarr → /sonarr/api or /radarr/api
     → mapping.py  (TVDB/TMDB/IMDB → AniList ID, in-memory indexes)
-    → Redis cache check
+    → cache check (in-memory)
     → seadex.py   (AniList ID → PocketBase API → entry records)
     → seadex.extract_nyaa_torrents()  (filter to nyaa.si URLs, extract IDs)
     → nyaa.py     (scrape each nyaa.si/view/<id> page sequentially)
     → torznab.py  (assemble Torznab XML with [SeaDexBest]/[SeaDexAlt] tags)
-    → Redis cache set
+    → cache set (in-memory)
 ```
 
 ### Module responsibilities
 
-- **[app/mapping.py](app/mapping.py)** — Downloads the [AniBridge](https://github.com/anibridge/anibridge-mappings) `mappings.min.json` at startup and builds three in-memory reverse indexes: `(tvdb_id, season) → {anilist_ids}`, `tmdb_movie_id → {anilist_ids}`, `imdb_id → {anilist_ids}`. Refreshes on a background task every `MAPPING_CACHE_TTL` seconds. The mapping data is also persisted in Redis to survive restarts.
+- **[app/mapping.py](app/mapping.py)** — Downloads the [AniBridge](https://github.com/anibridge/anibridge-mappings) `mappings.min.json` at startup and builds three in-memory reverse indexes: `(tvdb_id, season) → {anilist_ids}`, `tmdb_movie_id → {anilist_ids}`, `imdb_id → {anilist_ids}`. Refreshes on a background task every `MAPPING_REFRESH_INTERVAL` seconds.
 - **[app/seadex.py](app/seadex.py)** — Calls the SeaDex PocketBase REST API (`/collections/entries/records`) with an OR filter on AniList IDs and `expand=trs`. Extracts Nyaa torrent references from the expanded `trs` relation, filtering to `nyaa.si/view/` URLs only.
 - **[app/nyaa.py](app/nyaa.py)** — HTML-scrapes individual `nyaa.si/view/<id>` pages to get title, size, seeders, leechers, info hash, and publish date. Requests are sequential with a configurable delay to avoid rate limiting.
 - **[app/torznab.py](app/torznab.py)** — Pure XML builders. Titles are suffixed with `[SeaDexBest]` or `[SeaDexAlt]` based on the `best` flag from SeaDex. Also handles caps responses and Prowlarr health-check pings.
-- **[app/cache.py](app/cache.py)** — Thin async Redis wrapper. All failures are caught and logged; the app continues without caching if Redis is unavailable.
+- **[app/cache.py](app/cache.py)** — In-memory TTL cache backed by a plain Python dict. Synchronous. Expiry is lazy (checked on read). Exposes `cache_get`, `cache_set`, `cache_delete`, and `cache_clear`.
 - **[app/config.py](app/config.py)** — Single `Settings` instance (`settings`) imported everywhere.
 
 ### SeaDex API
@@ -135,5 +130,8 @@ Download link is constructed as `https://nyaa.si/download/<id>.torrent` — it i
 
 ### Caching strategy
 
-- AniBridge mappings: cached in Redis under `seadex:anibridge_mappings`, also held in-memory.
+All caching is in-memory (a plain Python dict with TTL expiry in `app/cache.py`). No external dependencies.
+
+- AniBridge mappings: held in the three in-memory index dicts, re-fetched from AniBridge on startup and every `MAPPING_REFRESH_INTERVAL` seconds.
 - Search results: cached under `seadex:result:sonarr:al:<id>` (Sonarr) or `seadex:result:radarr:al:<id>` (Radarr) — AniList ID uniquely identifies the season.
+- Cache can be cleared at runtime via `POST /cache/clear` without restarting.

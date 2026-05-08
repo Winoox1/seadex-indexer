@@ -1,42 +1,29 @@
-import logging
+import time
 from typing import Optional
 
-import redis.asyncio as aioredis
-
-from .config import settings
-
-logger = logging.getLogger(__name__)
-
-_redis: Optional[aioredis.Redis] = None
+_cache: dict[str, tuple[str, float]] = {}  # key -> (value, expiry_time)
 
 
-async def get_redis() -> aioredis.Redis:
-    global _redis
-    if _redis is None:
-        _redis = aioredis.from_url(settings.redis_url, decode_responses=True)
-    return _redis
-
-
-async def cache_get(key: str) -> Optional[str]:
-    try:
-        r = await get_redis()
-        return await r.get(key)
-    except Exception as e:
-        logger.warning(f"Redis GET failed for {key}: {e}")
+def cache_get(key: str) -> Optional[str]:
+    entry = _cache.get(key)
+    if entry is None:
         return None
+    value, expiry = entry
+    if time.monotonic() > expiry:
+        del _cache[key]
+        return None
+    return value
 
 
-async def cache_set(key: str, value: str, ttl: int) -> None:
-    try:
-        r = await get_redis()
-        await r.setex(key, ttl, value)
-    except Exception as e:
-        logger.warning(f"Redis SET failed for {key}: {e}")
+def cache_set(key: str, value: str, ttl: int) -> None:
+    _cache[key] = (value, time.monotonic() + ttl)
 
 
-async def cache_delete(key: str) -> None:
-    try:
-        r = await get_redis()
-        await r.delete(key)
-    except Exception as e:
-        logger.warning(f"Redis DELETE failed for {key}: {e}")
+def cache_delete(key: str) -> None:
+    _cache.pop(key, None)
+
+
+def cache_clear() -> int:
+    count = len(_cache)
+    _cache.clear()
+    return count

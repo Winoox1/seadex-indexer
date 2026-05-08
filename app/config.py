@@ -6,16 +6,16 @@ class Settings(BaseSettings):
     port: int = 3232
     log_level: str = "INFO"
 
-    # Redis
-    redis_url: str = "redis://localhost:6379"
-
     # Cache TTLs (seconds)
-    result_cache_ttl: int = 21600       # 6 hours
-    mapping_cache_ttl: int = 86400      # 24 hours
+    result_cache_ttl: int = 7200         # 2 hours
+    negative_cache_ttl: int = 7200       # 2 hours — for AniList IDs with no SeaDex entry
+
+    # AniBridge mapping refresh interval (seconds)
+    mapping_refresh_interval: int = 86400  # 24 hours
 
     # Nyaa scraping
-    nyaa_batch_interval: float = 1.0    # seconds between requests
-    nyaa_timeout: int = 15
+    nyaa_batch_interval: float = 1.0    # minimum seconds between request starts
+    nyaa_concurrency: int = 2           # max in-flight requests at once
 
 
 settings = Settings()

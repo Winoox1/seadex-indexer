@@ -8,7 +8,7 @@ from fastapi import FastAPI, Query
 from fastapi.responses import Response
 
 from . import mapping, seadex, nyaa, torznab, anilist
-from .cache import cache_get, cache_set, get_redis
+from .cache import cache_get, cache_set, cache_clear
 from .config import settings
 
 logging.basicConfig(
@@ -31,23 +31,12 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to load AniBridge mappings on startup: {e}")
 
-    # Check Redis connectivity
-    try:
-        r = await get_redis()
-        await r.ping()  # type: ignore[misc]
-        logger.info("Redis connection OK")
-    except Exception as e:
-        logger.warning(
-            f"Redis unavailable ({e}) — caching disabled, "
-            "all requests will hit SeaDex and Nyaa directly"
-        )
-
     # Background refresh task
     async def refresh_loop():
         while True:
-            await asyncio.sleep(settings.mapping_cache_ttl)
+            await asyncio.sleep(settings.mapping_refresh_interval)
             try:
-                await mapping.load_mappings(force=True)
+                await mapping.load_mappings()
                 logger.info("AniBridge mappings refreshed")
             except Exception as e:
                 logger.error(f"Mapping refresh failed: {e}")
@@ -154,14 +143,15 @@ async def sonarr_api(
         return xml_response(torznab.empty_xml("sonarr"))
 
     cache_key = f"seadex:result:sonarr:al:{anilist_ids[0]}"
-    cached = await cache_get(cache_key)
+    cached = cache_get(cache_key)
     if cached:
         logger.info(f"Cache hit: sonarr anilist={anilist_ids[0]} s={season}")
         return xml_response(cached)
 
     logger.info(f"sonarr tvdb={tvdbid} s={season} -> anilist={anilist_ids}")
     xml = await _search_and_build(anilist_ids, "sonarr", season)
-    await cache_set(cache_key, xml, settings.result_cache_ttl)
+    ttl = settings.negative_cache_ttl if xml == torznab.empty_xml("sonarr") else settings.result_cache_ttl
+    cache_set(cache_key, xml,ttl)
     return xml_response(xml)
 
 
@@ -195,7 +185,7 @@ async def radarr_api(
         return xml_response(torznab.empty_xml("radarr"))
 
     cache_key = f"seadex:result:radarr:al:{anilist_ids[0]}"
-    cached = await cache_get(cache_key)
+    cached = cache_get(cache_key)
     if cached:
         logger.info(f"Cache hit: radarr anilist={anilist_ids[0]}")
         return xml_response(cached)
@@ -203,7 +193,8 @@ async def radarr_api(
     year = await anilist.fetch_year(anilist_ids[0])
     logger.info(f"radarr tmdb={tmdbid} imdb={imdbid} -> anilist={anilist_ids} year={year}")
     xml = await _search_and_build(anilist_ids, "radarr", year=year)
-    await cache_set(cache_key, xml, settings.result_cache_ttl)
+    ttl = settings.negative_cache_ttl if xml == torznab.empty_xml("radarr") else settings.result_cache_ttl
+    cache_set(cache_key, xml,ttl)
     return xml_response(xml)
 
 
@@ -215,3 +206,46 @@ async def health():
         "status": "ok",
         "mappings_loaded": mapping.is_loaded(),
     }
+
+
+# ── Debug endpoint ───────────────────────────────────────────────────────────────
+
+@app.get("/debug")
+async def debug(
+    tvdb: Optional[int] = None,
+    season: Optional[int] = None,
+    tmdb: Optional[int] = None,
+    imdb: Optional[str] = None,
+):
+    result = {"mappings": mapping.stats()}
+
+    if tvdb is not None and season is not None:
+        result["lookup"] = {
+            "type": "tvdb",
+            "tvdb": tvdb,
+            "season": season,
+            "anilist_ids": mapping.lookup_tvdb(tvdb, season),
+        }
+    elif tmdb is not None:
+        result["lookup"] = {
+            "type": "tmdb",
+            "tmdb": tmdb,
+            "anilist_ids": mapping.lookup_tmdb_movie(tmdb),
+        }
+    elif imdb is not None:
+        result["lookup"] = {
+            "type": "imdb",
+            "imdb": imdb,
+            "anilist_ids": mapping.lookup_imdb_movie(imdb),
+        }
+
+    return result
+
+
+# ── Cache clear ───────────────────────────────────────────────────────────────────
+
+@app.post("/cache/clear")
+async def clear_cache():
+    count = cache_clear()
+    logger.info(f"Cache cleared: {count} entries removed")
+    return {"cleared": count}

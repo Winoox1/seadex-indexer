@@ -14,12 +14,10 @@ We build two reverse indexes at startup:
 import json
 import logging
 import re
+from datetime import datetime, timezone
 from typing import Dict, Optional, Set
 
 import httpx
-
-from .cache import cache_get, cache_set
-from .config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +34,7 @@ _TMDB_MOVIE_RE = re.compile(r"^tmdb_movie:(\d+)$")
 _IMDB_MOVIE_RE = re.compile(r"^imdb_movie:(tt\d+)$")
 _ANILIST_RE = re.compile(r"^anilist:(\d+)$")
 
-CACHE_KEY = "seadex:anibridge_mappings"
+_last_refresh: Optional[str] = None
 
 
 def _build_indexes(data: dict) -> None:
@@ -123,18 +121,9 @@ def _build_indexes(data: dict) -> None:
     )
 
 
-async def load_mappings(force: bool = False) -> None:
-    """Load mappings from Redis cache or fetch from AniBridge."""
-    if not force:
-        cached = await cache_get(CACHE_KEY)
-        if cached:
-            try:
-                data = json.loads(cached)
-                _build_indexes(data)
-                logger.info("AniBridge mappings loaded from Redis cache")
-                return
-            except Exception as e:
-                logger.warning(f"Failed to parse cached mappings: {e}")
+async def load_mappings() -> None:
+    """Fetch AniBridge mappings and build in-memory indexes."""
+    global _last_refresh
 
     url = "https://github.com/anibridge/anibridge-mappings/releases/latest/download/mappings.min.json"
     logger.info(f"Fetching AniBridge mappings from {url}")
@@ -144,9 +133,9 @@ async def load_mappings(force: bool = False) -> None:
         raw = resp.text
 
     data = json.loads(raw)
-    await cache_set(CACHE_KEY, raw, settings.mapping_cache_ttl)
     _build_indexes(data)
-    logger.info("AniBridge mappings fetched and cached")
+    _last_refresh = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    logger.info("AniBridge mappings fetched and built")
 
 
 def lookup_tvdb(tvdb_id: int, season: int) -> list[int]:
@@ -172,3 +161,12 @@ def lookup_imdb_movie(imdb_id: str) -> list[int]:
 
 def is_loaded() -> bool:
     return bool(_tvdb_index or _tmdb_movie_index or _imdb_movie_index)
+
+
+def stats() -> dict:
+    return {
+        "tvdb_entries": len(_tvdb_index),
+        "tmdb_movie_entries": len(_tmdb_movie_index),
+        "imdb_movie_entries": len(_imdb_movie_index),
+        "last_refresh": _last_refresh,
+    }

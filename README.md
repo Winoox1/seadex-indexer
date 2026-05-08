@@ -3,21 +3,26 @@
 > [!IMPORTANT]
 > **This project was built entirely with AI.** It was made for a personal need, but I decided to share it in case someone else found it useful — use at your own risk. As it wasn't written by me feel free to copy it.
 
-A Prowlarr Torznab indexer that serves the best releases according to **[SeaDex](https://releases.moe)** to Sonarr and Radarr. Uses **[AniBridge mappings](https://github.com/anibridge/anibridge-mappings)**
+A Prowlarr Torznab indexer that serves the best anime releases from **[SeaDex](https://releases.moe)** to Sonarr and Radarr. Uses **[AniBridge mappings](https://github.com/anibridge/anibridge-mappings)** for ID mapping.
+
+Huge thanks to the people maintaining **[SeaDex](https://releases.moe)** so it's easy to grab the best available releases, and to the people maintaining the **[AniBridge mappings](https://github.com/anibridge/anibridge-mappings)** project, this wouldn't be possible without all of their hard work.
 
 ## Features
 
 - **Sonarr** (`/sonarr/api`) — TVDB ID + season → AniList → SeaDex → Nyaa
 - **Radarr** (`/radarr/api`) — TMDB/IMDB ID → AniList → SeaDex → Nyaa
-- **Redis caching** — 6-hour result cache, 24-hour mapping cache, must host your own instance of Redis
-- **Relase Title enchancements** — Adds `[SeaDexBest]`, `[SeaDexAlt]`, and all SeaDex compatibility tags, aditionally will add the season number sent by Sonarr as SXX if its not present already, for Radarr a year will be added if not present yet by fetching it from AniList
-- **Season Packs only** — As SeaDex only categorises full Season Packs, this indexer will also only return full Season Packs no matter if a season or episode search is done
+- **In-memory caching** — 2-hour result cache to avoid redundant SeaDex and Nyaa requests. Cache is cleared on container restart.
+- **Release Title Enhancements** — Adds `[SeaDexBest]`, `[SeaDexAlt]`, and all SeaDex compatibility tags, and will additionally add the season number sent by Sonarr as SXX if it's not present already, for Radarr a year will be added if not present yet by fetching it from AniList
+- **Full Seasons only** — As SeaDex only categorises full Seasons, this indexer will also only return full Seasons, no matter if a season or episode search is done
 
-> [!IMPORTANT]  
-> **Specials not supported** — Sonarr does not send enough information to reliably identify a specials search, so specials searches will return no results
+> [!TIP]
+> Setting most series to **Standard** type in Sonarr is recommended over Anime type as it results in much faster searches. Most modern anime is released in the `SxxEyy` format which makes Standard type a much better fit. Use Anime type for older shows like One Piece and Naruto as they are released in the `001` Absolute format.
+
+> [!NOTE]
+> **Specials** — Specials will return results when using Standard series type, but Sonarr will often struggle to match and import them.
 
 
-## Quick Start Docker Compose
+## Docker Compose
 
 ```yaml
   seadex-indexer:
@@ -25,44 +30,37 @@ A Prowlarr Torznab indexer that serves the best releases according to **[SeaDex]
     image: ghcr.io/winoox1/seadex-indexer:latest
     ports:
       - 3232:3232
-    environment:
-      # Point this at your existing Redis instance
-      - REDIS_URL=redis://your-redis-host:6379
-      # Optional overrides:
-      # - PORT=3232
-      # - RESULT_CACHE_TTL=21600
-      # - MAPPING_CACHE_TTL=86400
-      # - NYAA_BATCH_INTERVAL=1.0
-      # - LOG_LEVEL=INFO
     restart: unless-stopped
 ```
 
-```bash
-docker compose up -d
-```
+<details>
+<summary>Advanced Configuration</summary>
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3232` | Port the server listens on inside the container |
+| `RESULT_CACHE_TTL` | `7200` | Search result cache TTL (seconds) |
+| `NEGATIVE_CACHE_TTL` | `7200` | Cache TTL for shows with no SeaDex entry (seconds) |
+| `MAPPING_REFRESH_INTERVAL` | `86400` | How often to re-download AniBridge mappings (seconds) |
+| `NYAA_BATCH_INTERVAL` | `1.0` | Minimum gap between Nyaa request starts (seconds) |
+| `NYAA_CONCURRENCY` | `2` | Max simultaneous Nyaa fetches — request rate never exceeds `1 / NYAA_BATCH_INTERVAL` regardless of this value |
+| `LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+
+</details>
 
 ## Prowlarr Setup
 
 Add two separate indexers — one for Sonarr, one for Radarr:
 
 1. Add indexer → **Generic Torznab**
-2. For Sonarr: URL = `http://seadex-indexer:3232/sonarr`
-3. For Radarr: URL = `http://seadex-indexer:3232/radarr`
-4. Click **Test** and **Save**
-
-**Optional — restricting to specific app instances via tags:**
-
-> [!IMPORTANT]
-> Tags should be used with caution, they can have unintended effects. An app with a tag will sonly sync with indexers having the same tag.
-
-If you run multiple Sonarr or Radarr instances and want to sync each indexer only to your anime instance, assign tags in Prowlarr:
-
-- Add tag `anime` to the Sonarr indexer → set the same tag on your anime Sonarr instance in Prowlarr → Settings → Apps
-- Add tag `anime-movies` to the Radarr indexer → set the same tag on your anime Radarr instance
+2. Set Indexer name to whatever your like
+3. For Sonarr: URL = `http://seadex-indexer:3232/sonarr`
+4. For Radarr: URL = `http://seadex-indexer:3232/radarr`
+5. Click **Test** and **Save**
 
 ## Sonarr / Radarr Custom Formats
 
-Create Custom Formats matching these title tags for scoring. The `[SeaDexBest]` and `[SeaDexAlt]` tags are always appended. Compatibility tags are appended when present on the SeaDex entry, you can also make Custom Formats to score these if you wish to.
+Create Custom Formats matching the `[SeaDexBest]` and `[SeaDexAlt]` title tags for scoring. Compatibility tags are appended when present on the SeaDex entry and you can also create Custom Formats to score these if you wish.
 
 ### Release Quality Tags
 
@@ -70,6 +68,49 @@ Create Custom Formats matching these title tags for scoring. The `[SeaDexBest]` 
 |-----|---------|
 | `[SeaDexBest]` | Marked as Best on SeaDex |
 | `[SeaDexAlt]` | Marked as Alt on SeaDex |
+
+<details>
+<summary>Example CFs — SeaDex Best &amp; Alt</summary>
+
+**SeaDex Best**
+```json
+{
+  "name": "SeaDex Best",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "SeaDex best match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[seadex\\s*best\\]"
+      }
+    }
+  ]
+}
+```
+
+**SeaDex Alt**
+```json
+{
+  "name": "SeaDex Alt",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "SeaDex alt match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[seadex\\s*alt\\]"
+      }
+    }
+  ]
+}
+```
+
+</details>
 
 ### Release Compatibility Tags
 
@@ -81,33 +122,235 @@ Create Custom Formats matching these title tags for scoring. The `[SeaDexBest]` 
 | `[Dolby Vision]` | Is Dolby Vision Profile 5 which requires a Dolby Vision supported player, device, and screen. Alternatively MPV with an HDR screen. Not meeting this criteria will result in a green/purple image. |
 | `[HDR]` | Requires an HDR screen — Not meeting this criteria will result in a washed out image. Alternatively some players will tonemap, but we recommend getting the SDR release instead. |
 | `[Incomplete]` | Does not contain all episodes — used when it provides better video/subtitle quality for the episodes it does include |
-| `[Misplaced Special]` | Has specials at the top of the file list, often times these specials should be watched after the main series. Make sure you watch in the correct order. | 
+| `[Misplaced Special]` | Has specials at the top of the file list, often these specials should be watched after the main series. Make sure you watch in the correct order. | 
 | `[Patch Required]` | Requires you to download and run a patch in order to fix issues with the release. Generally the community will upload the pre-patched files to avoid this. |
 | `[VFR]` | Has a variable framerate, which means it changes between 24, 30, and even 60fps depending on the scene. In order to display the content correctly your screen should either use VRR or be set to a multiple of 120Hz. |
 | `[YUV444P]` | Is encoded with 4:4:4 chroma which has poor hardware support. Generally it will not work on anything outside of a PC, so if you're using a streaming box/stick you'll want to avoid it. |
 
-## Configuration
+<details>
+<summary>Example CFs — Compatibility Tags</summary>
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `3232` | Port the server listens on inside the container. |
-| `REDIS_URL` | `redis://localhost:6379` | Redis connection URL |
-| `RESULT_CACHE_TTL` | `21600` | Result cache TTL (seconds) |
-| `MAPPING_CACHE_TTL` | `86400` | AniBridge mapping cache TTL (seconds) |
-| `NYAA_BATCH_INTERVAL` | `1.0` | Delay between Nyaa requests (seconds) |
-| `LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+**Broken**
+```json
+{
+  "name": "Broken",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Broken match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[broken\\]"
+      }
+    }
+  ]
+}
+```
 
-## Health Check
+**Deband Recommended**
+```json
+{
+  "name": "Deband Recommended",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Deband recommended match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[deband\\s*recommended\\]"
+      }
+    }
+  ]
+}
+```
 
-​```
+**Deband Required**
+```json
+{
+  "name": "Deband Required",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Deband required match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[deband\\s*required\\]"
+      }
+    }
+  ]
+}
+```
+
+**Dolby Vision**
+```json
+{
+  "name": "Dolby Vision",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Dolby Vision match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[dolby\\s*vision\\]"
+      }
+    }
+  ]
+}
+```
+
+**HDR**
+```json
+{
+  "name": "HDR",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "HDR match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[hdr\\]"
+      }
+    }
+  ]
+}
+```
+
+**Incomplete**
+```json
+{
+  "name": "Incomplete",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Incomplete match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[incomplete\\]"
+      }
+    }
+  ]
+}
+```
+
+**Misplaced Special**
+```json
+{
+  "name": "Misplaced Special",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Misplaced special match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[misplaced\\s*special\\]"
+      }
+    }
+  ]
+}
+```
+
+**Patch Required**
+```json
+{
+  "name": "Patch Required",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Patch required match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[patch\\s*required\\]"
+      }
+    }
+  ]
+}
+```
+
+**VFR**
+```json
+{
+  "name": "VFR",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "VFR match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[vfr\\]"
+      }
+    }
+  ]
+}
+```
+
+**YUV444P**
+```json
+{
+  "name": "YUV444P",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "YUV444P match",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "(?i)\\[yuv444p\\]"
+      }
+    }
+  ]
+}
+```
+
+</details>
+
+## Endpoints
+
+### Health check
+
+```
 GET /health
-​```
+```
 
-Returns:
-​```json
-{"status": "ok", "mappings_loaded": true}
-​```
+Returns `{"status": "ok", "mappings_loaded": true}`.
 
-- `status` is always `ok` if the app is running — it does not check Redis or external services.
-- `mappings_loaded` indicates whether the AniBridge ID mapping indexes are populated in memory. If `false`, the app is still starting up or the initial mapping fetch failed — all searches will return empty results until this is `true`.
+- `status` is always `ok` if the app is running
 
+- `mappings_loaded` is `false` if the app is still starting up or the initial mapping fetch failed — searches will return empty results until `true`.
+
+### Debug
+
+```
+GET /debug
+GET /debug?tvdb=357492&season=1
+GET /debug?tmdb=283984
+GET /debug?imdb=tt4054952
+```
+
+Returns mapping index counts and last refresh time. Pass `tvdb`+`season`, `tmdb`, or `imdb` to see what AniList IDs a given ID resolves to.
+
+### Clear cache
+
+```
+POST /cache/clear
+```
+
+Clears all in-memory cached results. Useful after a SeaDex entry is updated and you want fresh results without restarting.
