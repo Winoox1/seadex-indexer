@@ -58,18 +58,6 @@ Add two separate indexers — one for Sonarr, one for Radarr:
 4. For Radarr: URL = `http://seadex-indexer:3232/radarr`
 5. Click **Test** and **Save**
 
-<details>
-<summary>Optional — restricting to specific app instances via tags</summary>
-
-> **Tags should be used with caution, they can have unintended effects. An app with a tag will only sync with indexers having the same tag.**
-
-If you run multiple Sonarr or Radarr instances and want to sync each indexer only to your anime instance, assign tags in Prowlarr:
-
-- Add tag `anime` to the Sonarr indexer → set the same tag on your anime Sonarr instance in Prowlarr → Settings → Apps
-- Add tag `anime-movies` to the Radarr indexer → set the same tag on your anime Radarr instance
-
-</details>
-
 ## Sonarr / Radarr Custom Formats
 
 Create Custom Formats matching the `[SeaDexBest]` and `[SeaDexAlt]` title tags for scoring. Compatibility tags are appended when present on the SeaDex entry and you can also create Custom Formats to score these if you wish.
