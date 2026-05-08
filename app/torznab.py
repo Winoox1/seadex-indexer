@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from xml.sax.saxutils import escape
 
-_SEASON_RE = re.compile(r"\b(\d+(?:st|nd|rd|th)\s+[Ss]eason|[Ss]eason\s*\d{1,2}|[Ss]\d{1,2})\b")
+_SEASON_RE = re.compile(r"\b(\d+(?:st|nd|rd|th)\s+[Ss]eason|[Ss]eason\s*\d{1,2}|[Ss]\d{1,2}(?:E\d+)?)\b")
 _YEAR_RE = re.compile(r"\b(19|20)\d{2}\b")
 # Matches the first quality/format marker after the show name (version tag, or opening bracket)
 _QUALITY_MARKER_RE = re.compile(r"^(\[.*?\]\s*)(.*?)(\s+(?:v\d+|\(|\[))", re.DOTALL)
