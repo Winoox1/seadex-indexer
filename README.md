@@ -61,8 +61,7 @@ Add two separate indexers — one for Sonarr, one for Radarr:
 <details>
 <summary>Optional — restricting to specific app instances via tags</summary>
 
-> [!IMPORTANT]
-> Tags should be used with caution, they can have unintended effects. An app with a tag will only sync with indexers having the same tag.
+> **Tags should be used with caution, they can have unintended effects. An app with a tag will only sync with indexers having the same tag.**
 
 If you run multiple Sonarr or Radarr instances and want to sync each indexer only to your anime instance, assign tags in Prowlarr:
 
