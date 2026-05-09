@@ -133,5 +133,5 @@ Download link is constructed as `https://nyaa.si/download/<id>.torrent` — it i
 All caching is in-memory (a plain Python dict with TTL expiry in `app/cache.py`). No external dependencies.
 
 - AniBridge mappings: held in the three in-memory index dicts, re-fetched from AniBridge on startup and every `MAPPING_REFRESH_INTERVAL` seconds.
-- Search results: cached under `seadex:result:sonarr:al:<id>` (Sonarr) or `seadex:result:radarr:al:<id>` (Radarr) — AniList ID uniquely identifies the season.
+- Search results: cached under `seadex:result:sonarr:al:<id>:s<season>` (Sonarr) or `seadex:result:radarr:al:<id>` (Radarr). Season is included in the Sonarr key because some shows have multiple TVDB seasons mapped to the same AniList ID.
 - Cache can be cleared at runtime via `POST /cache/clear` without restarting.
