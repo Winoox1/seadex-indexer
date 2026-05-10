@@ -19,7 +19,7 @@ Huge thanks to the people maintaining **[SeaDex](https://releases.moe)** so it's
 > Setting most series to **Standard** type in Sonarr is recommended over Anime type as it results in much faster searches. Most modern anime is released in the `SxxEyy` format which makes Standard type a much better fit. Use Anime type for older shows like One Piece and Naruto as they are released in the `001` Absolute format.
 
 > [!NOTE]
-> **Specials** - Specials will return results when using Standard series type, but Sonarr will often struggle to recognise them.
+> Specials will return results when using Standard series type, but Sonarr will often struggle to recognise them.
 
 ## Docker Compose
 
