@@ -12,7 +12,7 @@ Huge thanks to the people maintaining **[SeaDex](https://releases.moe)** so it's
 - **Sonarr & Radarr support** - via `/sonarr/api` and `/radarr/api`. Flow is: Sonarr/Radarr request with TVDB ID + Season / TMDB ID or IMDB ID -> Map to AniList ID -> Query SeaDex API -> Scrape Nyaa -> Return to Sonarr/Radarr
 - **Caching** - 2-hour result cache to avoid redundant SeaDex and Nyaa requests. Cache is cleared on container restart.
 - **Add Title Tags** - Adds `[SeaDexBest]`, `[SeaDexAlt]`, and all SeaDex compatibility tags.
-- **Add Season or Year to title** - For Sonarr requests the season it sends will be added as `[SXX]` if it's not present already. For Radarr a year will be added if it's not present already by fetching it from AniList (This improves the chances a release will be recognised but does not guarantee it)
+- **Add Season or Year to title** - For Sonarr requests, the season it sends will be added as `[SXX]` if it's not present already. For Radarr a year will be added if it's not present already by fetching it from AniList (This improves the chances a release will be recognised but does not guarantee it)
 - **Full Seasons only** - No matter if a season or episode search is done, only full seasons will be returned.
 
 > [!TIP]
