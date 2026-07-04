@@ -5,10 +5,10 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 from fastapi import FastAPI, Query
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 from . import mapping, seadex, nyaa, torznab, anilist
-from .cache import cache_get, cache_set, cache_clear
+from .cache import cache_get, cache_set, cache_clear, cache_purge_expired
 from .config import settings
 
 logging.basicConfig(
@@ -19,6 +19,14 @@ logger = logging.getLogger(__name__)
 
 XML_CONTENT_TYPE = "application/rss+xml; charset=utf-8"
 CAPS_CONTENT_TYPE = "application/xml; charset=utf-8"
+
+# Short TTL for empty results caused by upstream failures (SeaDex/Nyaa errors),
+# so a transient outage isn't remembered for the full negative_cache_ttl.
+ERROR_CACHE_TTL = 60
+
+# Retry interval when mappings failed to load — without this, a failed startup
+# fetch would leave the indexer serving empty results until the daily refresh.
+MAPPING_RETRY_INTERVAL = 60
 
 
 @asynccontextmanager
@@ -34,12 +42,20 @@ async def lifespan(app: FastAPI):
     # Background refresh task
     async def refresh_loop():
         while True:
-            await asyncio.sleep(settings.mapping_refresh_interval)
+            interval = (
+                settings.mapping_refresh_interval
+                if mapping.is_loaded()
+                else MAPPING_RETRY_INTERVAL
+            )
+            await asyncio.sleep(interval)
             try:
                 await mapping.load_mappings()
                 logger.info("AniBridge mappings refreshed")
             except Exception as e:
                 logger.error(f"Mapping refresh failed: {e}")
+            purged = cache_purge_expired()
+            if purged:
+                logger.info(f"Cache purge: {purged} expired entries removed")
 
     task = asyncio.create_task(refresh_loop())
     yield
@@ -77,24 +93,31 @@ async def _resolve_anilist_ids_radarr(
     return ids
 
 
-async def _search_and_build(anilist_ids: list[int], mode: str, season: Optional[int] = None, year: Optional[int] = None) -> str:
-    """Run the full SeaDex -> Nyaa pipeline and return Torznab XML."""
+async def _search_and_build(anilist_ids: list[int], mode: str, season: Optional[int] = None, year: Optional[int] = None) -> tuple[str, int]:
+    """
+    Run the full SeaDex -> Nyaa pipeline.
+    Returns (Torznab XML, cache TTL) — empty results from upstream failures get
+    ERROR_CACHE_TTL so they are retried soon, genuine misses get negative_cache_ttl.
+    """
     t0 = time.monotonic()
 
     entries = await seadex.query_seadex(anilist_ids)
+    if entries is None:
+        logger.info(f"[{mode}] anilist={anilist_ids} — SeaDex query failed")
+        return torznab.empty_xml(mode), ERROR_CACHE_TTL
     if not entries:
         logger.info(f"[{mode}] anilist={anilist_ids} — no SeaDex entries found")
-        return torznab.empty_xml(mode)
+        return torznab.empty_xml(mode), settings.negative_cache_ttl
 
     nyaa_metas = seadex.extract_nyaa_torrents(entries)
     if not nyaa_metas:
         logger.info(f"[{mode}] anilist={anilist_ids} — no Nyaa torrents in SeaDex entries")
-        return torznab.empty_xml(mode)
+        return torznab.empty_xml(mode), settings.negative_cache_ttl
 
     torrents = await nyaa.fetch_all_torrents(nyaa_metas)
     if not torrents:
         logger.info(f"[{mode}] anilist={anilist_ids} — all Nyaa fetches failed")
-        return torznab.empty_xml(mode)
+        return torznab.empty_xml(mode), ERROR_CACHE_TTL
 
     best = sum(1 for t in torrents if t["best"])
     alt = len(torrents) - best
@@ -104,7 +127,7 @@ async def _search_and_build(anilist_ids: list[int], mode: str, season: Optional[
         f"{len(torrents)} results ({best} best, {alt} alt) in {elapsed:.1f}s"
     )
 
-    return torznab.build_results_xml(torrents, mode, season, year)
+    return torznab.build_results_xml(torrents, mode, season, year), settings.result_cache_ttl
 
 
 # ── Sonarr endpoint ────────────────────────────────────────────────────────────
@@ -149,9 +172,8 @@ async def sonarr_api(
         return xml_response(cached)
 
     logger.info(f"sonarr tvdb={tvdbid} s={season} -> anilist={anilist_ids}")
-    xml = await _search_and_build(anilist_ids, "sonarr", season)
-    ttl = settings.negative_cache_ttl if xml == torznab.empty_xml("sonarr") else settings.result_cache_ttl
-    cache_set(cache_key, xml,ttl)
+    xml, ttl = await _search_and_build(anilist_ids, "sonarr", season)
+    cache_set(cache_key, xml, ttl)
     return xml_response(xml)
 
 
@@ -192,9 +214,8 @@ async def radarr_api(
 
     year = await anilist.fetch_year(anilist_ids[0])
     logger.info(f"radarr tmdb={tmdbid} imdb={imdbid} -> anilist={anilist_ids} year={year}")
-    xml = await _search_and_build(anilist_ids, "radarr", year=year)
-    ttl = settings.negative_cache_ttl if xml == torznab.empty_xml("radarr") else settings.result_cache_ttl
-    cache_set(cache_key, xml,ttl)
+    xml, ttl = await _search_and_build(anilist_ids, "radarr", year=year)
+    cache_set(cache_key, xml, ttl)
     return xml_response(xml)
 
 
@@ -202,10 +223,14 @@ async def radarr_api(
 
 @app.get("/health")
 async def health():
-    return {
-        "status": "ok",
-        "mappings_loaded": mapping.is_loaded(),
-    }
+    loaded = mapping.is_loaded()
+    return JSONResponse(
+        {
+            "status": "ok" if loaded else "unavailable",
+            "mappings_loaded": loaded,
+        },
+        status_code=200 if loaded else 503,
+    )
 
 
 # ── Debug endpoint ───────────────────────────────────────────────────────────────

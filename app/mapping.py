@@ -11,11 +11,12 @@ We build two reverse indexes at startup:
   - (tmdb_movie_id | imdb_movie_id)  -> {anilist_id, ...}
 """
 
+import asyncio
 import json
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Dict, Optional, Set
+from typing import Dict, Optional, Set, Tuple
 
 import httpx
 
@@ -37,12 +38,15 @@ _ANILIST_RE = re.compile(r"^anilist:(\d+)$")
 _last_refresh: Optional[str] = None
 
 
-def _build_indexes(data: dict) -> None:
-    """Parse the AniBridge JSON and populate the lookup indexes."""
-    global _tvdb_index, _tmdb_movie_index, _imdb_movie_index
-    _tvdb_index = {}
-    _tmdb_movie_index = {}
-    _imdb_movie_index = {}
+def _build_indexes(data: dict) -> Tuple[Dict[tuple, Set[int]], Dict[str, Set[int]], Dict[str, Set[int]]]:
+    """
+    Parse the AniBridge JSON and return the three lookup indexes
+    (tvdb, tmdb_movie, imdb_movie). Builds into local dicts so the live
+    global indexes keep serving lookups until the caller swaps them in.
+    """
+    _tvdb_index: Dict[tuple, Set[int]] = {}
+    _tmdb_movie_index: Dict[str, Set[int]] = {}
+    _imdb_movie_index: Dict[str, Set[int]] = {}
 
     for source_key, targets in data.items():
         if not isinstance(targets, dict):
@@ -119,11 +123,17 @@ def _build_indexes(data: dict) -> None:
         f"{len(_tmdb_movie_index)} tmdb_movie entries, "
         f"{len(_imdb_movie_index)} imdb_movie entries"
     )
+    return _tvdb_index, _tmdb_movie_index, _imdb_movie_index
+
+
+def _parse_and_build(raw: str) -> Tuple[Dict[tuple, Set[int]], Dict[str, Set[int]], Dict[str, Set[int]]]:
+    """CPU-bound part of a refresh — runs on a worker thread via to_thread."""
+    return _build_indexes(json.loads(raw))
 
 
 async def load_mappings() -> None:
     """Fetch AniBridge mappings and build in-memory indexes."""
-    global _last_refresh
+    global _tvdb_index, _tmdb_movie_index, _imdb_movie_index, _last_refresh
 
     url = "https://github.com/anibridge/anibridge-mappings/releases/latest/download/mappings.min.json"
     logger.info(f"Fetching AniBridge mappings from {url}")
@@ -132,8 +142,11 @@ async def load_mappings() -> None:
         resp.raise_for_status()
         raw = resp.text
 
-    data = json.loads(raw)
-    _build_indexes(data)
+    # Parse + build off the event loop, then swap the live indexes atomically
+    tvdb, tmdb_movie, imdb_movie = await asyncio.to_thread(_parse_and_build, raw)
+    _tvdb_index = tvdb
+    _tmdb_movie_index = tmdb_movie
+    _imdb_movie_index = imdb_movie
     _last_refresh = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     logger.info("AniBridge mappings fetched and built")
 

@@ -27,3 +27,11 @@ def cache_clear() -> int:
     count = len(_cache)
     _cache.clear()
     return count
+
+
+def cache_purge_expired() -> int:
+    now = time.monotonic()
+    expired = [key for key, (_, expiry) in _cache.items() if now > expiry]
+    for key in expired:
+        del _cache[key]
+    return len(expired)

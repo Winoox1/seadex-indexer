@@ -1,7 +1,7 @@
 # SeaDex Indexer
 
 > [!IMPORTANT]
-> **This project was built entirely with AI.** It was made for a personal need, but I decided to share it in case someone else found it useful — use at your own risk. As it wasn't written by me feel free to copy it.
+> **This code in this project was written entirely with AI.** It was made for a personal need, but I decided to share it in case someone else found it useful — use at your own risk. As it wasn't written by me feel free to copy it.
 
 A Prowlarr Torznab indexer that serves the best anime releases from **[SeaDex](https://releases.moe)** to Sonarr and Radarr. Uses **[AniBridge mappings](https://github.com/anibridge/anibridge-mappings)** for ID mapping.
 
@@ -11,7 +11,7 @@ Huge thanks to the people maintaining **[SeaDex](https://releases.moe)** so it's
 
 - **Sonarr** (`/sonarr/api`) — TVDB ID + season → AniList → SeaDex → Nyaa
 - **Radarr** (`/radarr/api`) — TMDB/IMDB ID → AniList → SeaDex → Nyaa
-- **In-memory caching** — 2-hour result cache to avoid redundant SeaDex and Nyaa requests. Cache is cleared on container restart.
+- **In-memory caching** — 2-hour result cache to avoid redundant SeaDex and Nyaa requests. Empty results caused by upstream failures (SeaDex/Nyaa outages) are only cached for 60 seconds, so a brief outage doesn't hide results for hours. Cache is cleared on container restart.
 - **Release Title Enhancements** — Adds `[SeaDexBest]`, `[SeaDexAlt]`, and all SeaDex compatibility tags, and will additionally add the season number sent by Sonarr as SXX if it's not present already, for Radarr a year will be added if not present yet by fetching it from AniList
 - **Full Seasons only** — As SeaDex only categorises full Seasons, this indexer will also only return full Seasons, no matter if a season or episode search is done
 
@@ -330,11 +330,11 @@ Create Custom Formats matching the `[SeaDexBest]` and `[SeaDexAlt]` title tags f
 GET /health
 ```
 
-Returns `{"status": "ok", "mappings_loaded": true}`.
+Returns `{"status": "ok", "mappings_loaded": true}` with HTTP 200 once mappings are loaded.
 
-- `status` is always `ok` if the app is running
+- While mappings are not loaded (still starting up, or the initial AniBridge fetch failed) it returns HTTP **503** with `{"status": "unavailable", "mappings_loaded": false}` — searches would return empty results in this state, and the Docker healthcheck reports the container as unhealthy.
 
-- `mappings_loaded` is `false` if the app is still starting up or the initial mapping fetch failed — searches will return empty results until `true`.
+- If the initial mapping fetch failed, the app retries every 60 seconds until it succeeds, so this state normally resolves itself.
 
 ### Debug
 
