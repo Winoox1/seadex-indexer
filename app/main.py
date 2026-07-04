@@ -24,6 +24,11 @@ CAPS_CONTENT_TYPE = "application/xml; charset=utf-8"
 # so a transient outage isn't remembered for the full negative_cache_ttl.
 ERROR_CACHE_TTL = 60
 
+# TTL for partial results (some Nyaa pages failed even after the retry) — long
+# enough to absorb a search burst, short enough that the missing releases
+# reappear on the next search cycle instead of after the full result TTL.
+PARTIAL_CACHE_TTL = 900
+
 # Retry interval when mappings failed to load — without this, a failed startup
 # fetch would leave the indexer serving empty results until the daily refresh.
 MAPPING_RETRY_INTERVAL = 60
@@ -118,6 +123,13 @@ async def _search_and_build(anilist_ids: list[int], mode: str, season: Optional[
     if not torrents:
         logger.info(f"[{mode}] anilist={anilist_ids} — all Nyaa fetches failed")
         return torznab.empty_xml(mode), ERROR_CACHE_TTL
+
+    if len(torrents) < len(nyaa_metas):
+        logger.warning(
+            f"[{mode}] anilist={anilist_ids} — partial result "
+            f"{len(torrents)}/{len(nyaa_metas)}, caching {PARTIAL_CACHE_TTL}s"
+        )
+        return torznab.build_results_xml(torrents, mode, season, year), PARTIAL_CACHE_TTL
 
     best = sum(1 for t in torrents if t["best"])
     alt = len(torrents) - best
