@@ -127,7 +127,7 @@ def _build_indexes(data: dict) -> Tuple[Dict[tuple, Set[int]], Dict[str, Set[int
 
 
 def _parse_and_build(raw: str) -> Tuple[Dict[tuple, Set[int]], Dict[str, Set[int]], Dict[str, Set[int]]]:
-    """CPU-bound part of a refresh — runs on a worker thread via to_thread."""
+    """CPU-bound part of a refresh - runs on a worker thread via to_thread."""
     return _build_indexes(json.loads(raw))
 
 

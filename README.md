@@ -331,7 +331,7 @@ GET /health
 
 Returns `{"status": "ok", "mappings_loaded": true}` with HTTP 200 once mappings are loaded.
 
-- While mappings are not loaded (still starting up, or the initial AniBridge fetch failed) it returns HTTP **503** with `{"status": "unavailable", "mappings_loaded": false}` — searches would return empty results in this state, and the Docker healthcheck reports the container as unhealthy.
+- While mappings are not loaded (still starting up, or the initial AniBridge fetch failed) it returns HTTP **503** with `{"status": "unavailable", "mappings_loaded": false}` searches would return empty results in this state, and the Docker healthcheck reports the container as unhealthy.
 
 - If the initial mapping fetch failed, the app retries every 60 seconds until it succeeds, so this state normally resolves itself.
 

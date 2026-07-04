@@ -8,7 +8,7 @@ from .cache import cache_get, cache_set
 logger = logging.getLogger(__name__)
 
 _GRAPHQL_URL = "https://graphql.anilist.co"
-# Start years rarely change (occasional corrections) — cache for 24 hours
+# Start years rarely change (occasional corrections) - cache for 24 hours
 _YEAR_CACHE_TTL = 86400
 _QUERY = """
 query ($id: Int) {

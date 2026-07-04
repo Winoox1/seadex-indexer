@@ -9,7 +9,7 @@ _YEAR_RE = re.compile(r"\b(19|20)\d{2}\b")
 _QUALITY_MARKER_RE = re.compile(r"^(\[.*?\]\s*)(.*?)(\s+(?:v\d+|\(|\[))", re.DOTALL)
 _QUALITY_MARKER_NO_GROUP_RE = re.compile(r"^(.*?)(\s+(?:v\d+|\(|\[))", re.DOTALL)
 
-# SeaDex tag rewrites — avoid words Sonarr's parser misinterprets (e.g. "Special" → season 0)
+# SeaDex tag rewrites - avoid words Sonarr's parser misinterprets (e.g. "Special" → season 0)
 _TAG_REWRITES = {
     "Misplaced Special": "Mis-Spec",
 }

@@ -24,12 +24,12 @@ CAPS_CONTENT_TYPE = "application/xml; charset=utf-8"
 # so a transient outage isn't remembered for the full negative_cache_ttl.
 ERROR_CACHE_TTL = 60
 
-# TTL for partial results (some Nyaa pages failed even after the retry) — long
+# TTL for partial results (some Nyaa pages failed even after the retry) - long
 # enough to absorb a search burst, short enough that the missing releases
 # reappear on the next search cycle instead of after the full result TTL.
 PARTIAL_CACHE_TTL = 900
 
-# Retry interval when mappings failed to load — without this, a failed startup
+# Retry interval when mappings failed to load - without this, a failed startup
 # fetch would leave the indexer serving empty results until the daily refresh.
 MAPPING_RETRY_INTERVAL = 60
 
@@ -101,32 +101,32 @@ async def _resolve_anilist_ids_radarr(
 async def _search_and_build(anilist_ids: list[int], mode: str, season: Optional[int] = None, year: Optional[int] = None) -> tuple[str, int]:
     """
     Run the full SeaDex -> Nyaa pipeline.
-    Returns (Torznab XML, cache TTL) — empty results from upstream failures get
+    Returns (Torznab XML, cache TTL) - empty results from upstream failures get
     ERROR_CACHE_TTL so they are retried soon, genuine misses get negative_cache_ttl.
     """
     t0 = time.monotonic()
 
     entries = await seadex.query_seadex(anilist_ids)
     if entries is None:
-        logger.info(f"[{mode}] anilist={anilist_ids} — SeaDex query failed")
+        logger.info(f"[{mode}] anilist={anilist_ids} - SeaDex query failed, caching {ERROR_CACHE_TTL}s")
         return torznab.empty_xml(mode), ERROR_CACHE_TTL
     if not entries:
-        logger.info(f"[{mode}] anilist={anilist_ids} — no SeaDex entries found")
+        logger.info(f"[{mode}] anilist={anilist_ids} - no SeaDex entries found, caching {settings.negative_cache_ttl}s")
         return torznab.empty_xml(mode), settings.negative_cache_ttl
 
     nyaa_metas = seadex.extract_nyaa_torrents(entries)
     if not nyaa_metas:
-        logger.info(f"[{mode}] anilist={anilist_ids} — no Nyaa torrents in SeaDex entries")
+        logger.info(f"[{mode}] anilist={anilist_ids} - no Nyaa torrents in SeaDex entries, caching {settings.negative_cache_ttl}s")
         return torznab.empty_xml(mode), settings.negative_cache_ttl
 
     torrents = await nyaa.fetch_all_torrents(nyaa_metas)
     if not torrents:
-        logger.info(f"[{mode}] anilist={anilist_ids} — all Nyaa fetches failed")
+        logger.info(f"[{mode}] anilist={anilist_ids} - all Nyaa fetches failed, caching {ERROR_CACHE_TTL}s")
         return torznab.empty_xml(mode), ERROR_CACHE_TTL
 
     if len(torrents) < len(nyaa_metas):
         logger.warning(
-            f"[{mode}] anilist={anilist_ids} — partial result "
+            f"[{mode}] anilist={anilist_ids} - partial result "
             f"{len(torrents)}/{len(nyaa_metas)}, caching {PARTIAL_CACHE_TTL}s"
         )
         return torznab.build_results_xml(torrents, mode, season, year), PARTIAL_CACHE_TTL
@@ -135,8 +135,9 @@ async def _search_and_build(anilist_ids: list[int], mode: str, season: Optional[
     alt = len(torrents) - best
     elapsed = time.monotonic() - t0
     logger.info(
-        f"[{mode}] anilist={anilist_ids} — "
-        f"{len(torrents)} results ({best} best, {alt} alt) in {elapsed:.1f}s"
+        f"[{mode}] anilist={anilist_ids} - "
+        f"{len(torrents)} results ({best} best, {alt} alt) in {elapsed:.1f}s, "
+        f"caching {settings.result_cache_ttl}s"
     )
 
     return torznab.build_results_xml(torrents, mode, season, year), settings.result_cache_ttl
@@ -167,14 +168,14 @@ async def sonarr_api(
         logger.info("sonarr health check")
         return xml_response(torznab.prowlarr_test_xml("sonarr"))
 
-    # Real search — must have tvdbid + season
+    # Real search - must have tvdbid + season
     if not tvdbid or season is None:
         logger.debug(f"sonarr rejected: tvdbid={tvdbid} season={season} ep={ep} q={q!r}")
         return xml_response(torznab.empty_xml("sonarr"))
 
     anilist_ids = await _resolve_anilist_ids_sonarr(tvdbid, season)
     if not anilist_ids:
-        logger.info(f"sonarr tvdb={tvdbid} s={season} — no AniList mapping")
+        logger.info(f"sonarr tvdb={tvdbid} s={season} - no AniList mapping")
         return xml_response(torznab.empty_xml("sonarr"))
 
     cache_key = f"seadex:result:sonarr:al:{anilist_ids[0]}:s{season}"
@@ -215,7 +216,7 @@ async def radarr_api(
 
     anilist_ids = await _resolve_anilist_ids_radarr(tmdbid, imdbid)
     if not anilist_ids:
-        logger.info(f"radarr tmdb={tmdbid} imdb={imdbid} — no AniList mapping")
+        logger.info(f"radarr tmdb={tmdbid} imdb={imdbid} - no AniList mapping")
         return xml_response(torznab.empty_xml("radarr"))
 
     cache_key = f"seadex:result:radarr:al:{anilist_ids[0]}"

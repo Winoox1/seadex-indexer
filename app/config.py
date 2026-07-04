@@ -8,7 +8,7 @@ class Settings(BaseSettings):
 
     # Cache TTLs (seconds)
     result_cache_ttl: int = 7200         # 2 hours
-    negative_cache_ttl: int = 7200       # 2 hours — for AniList IDs with no SeaDex entry
+    negative_cache_ttl: int = 7200       # 2 hours - for AniList IDs with no SeaDex entry
 
     # AniBridge mapping refresh interval (seconds)
     mapping_refresh_interval: int = 86400  # 24 hours
