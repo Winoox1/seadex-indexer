@@ -1,7 +1,7 @@
 # SeaDex Indexer
 
 > [!IMPORTANT]
-> **This project was built entirely with AI.** It was made for a personal need, but I decided to share it in case someone else found it useful.
+> **This code in this project was made entirely with AI.** It was made for a personal need, but I decided to share it in case someone else found it useful.
 
 A Prowlarr Torznab indexer that serves the best anime releases from **[SeaDex](https://releases.moe)** to Sonarr and Radarr. Uses **[AniBridge mappings](https://github.com/anibridge/anibridge-mappings)** for ID mapping.
 
