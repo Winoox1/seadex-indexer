@@ -34,6 +34,7 @@ All settings are in [app/config.py](app/config.py) via `pydantic-settings`. Ever
 |---|---|---|
 | `PORT` | `3232` | Uvicorn listen port |
 | `RESULT_CACHE_TTL` | `7200` | Search result cache (seconds) |
+| `NEGATIVE_CACHE_TTL` | `7200` | Cache for genuinely empty results — AniList IDs with no SeaDex entry (seconds) |
 | `MAPPING_REFRESH_INTERVAL` | `86400` | How often to re-download AniBridge mappings (seconds) |
 | `NYAA_BATCH_INTERVAL` | `1.0` | Minimum gap between Nyaa request starts (seconds) |
 | `NYAA_CONCURRENCY` | `2` | Max simultaneous Nyaa fetches — start gap is enforced globally so rate never exceeds `1/NYAA_BATCH_INTERVAL` Hz |
@@ -58,11 +59,11 @@ Sonarr/Radarr → /sonarr/api or /radarr/api
 
 ### Module responsibilities
 
-- **[app/mapping.py](app/mapping.py)** — Downloads the [AniBridge](https://github.com/anibridge/anibridge-mappings) `mappings.min.json` at startup and builds three in-memory reverse indexes: `(tvdb_id, season) → {anilist_ids}`, `tmdb_movie_id → {anilist_ids}`, `imdb_id → {anilist_ids}`. Refreshes on a background task every `MAPPING_REFRESH_INTERVAL` seconds.
+- **[app/mapping.py](app/mapping.py)** — Downloads the [AniBridge](https://github.com/anibridge/anibridge-mappings) `mappings.min.json` at startup and builds three in-memory reverse indexes: `(tvdb_id, season) → {anilist_ids}`, `tmdb_movie_id → {anilist_ids}`, `imdb_id → {anilist_ids}`. Refreshes on a background task every `MAPPING_REFRESH_INTERVAL` seconds (retries every 60 s while not yet loaded, e.g. after a failed startup fetch). The CPU-bound JSON parse + index build runs in `asyncio.to_thread` on local dicts, and the live indexes are swapped in atomically at the end — lookups keep hitting the old indexes during a rebuild, so `_build_indexes` must never mutate the globals in place.
 - **[app/seadex.py](app/seadex.py)** — Calls the SeaDex PocketBase REST API (`/collections/entries/records`) with an OR filter on AniList IDs and `expand=trs`. Extracts Nyaa torrent references from the expanded `trs` relation, filtering to `nyaa.si/view/` URLs only.
-- **[app/nyaa.py](app/nyaa.py)** — HTML-scrapes individual `nyaa.si/view/<id>` pages to get title, size, seeders, leechers, info hash, and publish date. Requests are sequential with a configurable delay to avoid rate limiting.
+- **[app/nyaa.py](app/nyaa.py)** — HTML-scrapes individual `nyaa.si/view/<id>` pages to get title, size, seeders, leechers, info hash, and publish date. Requests are sequential with a configurable delay to avoid rate limiting. Failed fetches are retried once (through the same pacer, so the rate limit holds) to keep a transient blip from caching a partial result for the full result TTL.
 - **[app/torznab.py](app/torznab.py)** — Pure XML builders. Titles are suffixed with `[SeaDexBest]` or `[SeaDexAlt]` based on the `best` flag from SeaDex. Also handles caps responses and Prowlarr health-check pings.
-- **[app/cache.py](app/cache.py)** — In-memory TTL cache backed by a plain Python dict. Synchronous. Expiry is lazy (checked on read). Exposes `cache_get`, `cache_set`, `cache_delete`, and `cache_clear`.
+- **[app/cache.py](app/cache.py)** — In-memory TTL cache backed by a plain Python dict. Synchronous. Expiry is lazy (checked on read), plus a full sweep of expired entries (`cache_purge_expired`) piggybacked on the mapping refresh loop so never-re-read keys don't accumulate. Exposes `cache_get`, `cache_set`, `cache_delete`, `cache_clear`, and `cache_purge_expired`.
 - **[app/config.py](app/config.py)** — Single `Settings` instance (`settings`) imported everywhere.
 
 ### SeaDex API
@@ -134,4 +135,7 @@ All caching is in-memory (a plain Python dict with TTL expiry in `app/cache.py`)
 
 - AniBridge mappings: held in the three in-memory index dicts, re-fetched from AniBridge on startup and every `MAPPING_REFRESH_INTERVAL` seconds.
 - Search results: cached under `seadex:result:sonarr:al:<id>:s<season>` (Sonarr) or `seadex:result:radarr:al:<id>` (Radarr). Season is included in the Sonarr key because some shows have multiple TVDB seasons mapped to the same AniList ID.
+- The cache TTL depends on the outcome (`_search_and_build` in `app/main.py` returns the XML together with its TTL): full results get `RESULT_CACHE_TTL`; a genuine miss (SeaDex has no entry, or no Nyaa torrents in the entry) gets `NEGATIVE_CACHE_TTL`; a partial result (some Nyaa pages failed even after the retry) gets the hardcoded `PARTIAL_CACHE_TTL` (15 min) so missing releases reappear soon; an upstream failure (SeaDex API error, or all Nyaa fetches failed) gets the hardcoded `ERROR_CACHE_TTL` (60 s). The partial/error TTLs are deliberately not configurable.
+- AniList start years (used for Radarr title tagging): cached under `anilist:year:<id>` for 24 hours — long enough to skip repeat GraphQL calls, short enough that occasional year corrections on AniList propagate within a day.
 - Cache can be cleared at runtime via `POST /cache/clear` without restarting.
+- `GET /health` returns 503 (not 200) while mappings are not loaded, so the Docker `HEALTHCHECK` marks a container that failed its AniBridge startup fetch as unhealthy.

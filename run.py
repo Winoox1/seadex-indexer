@@ -6,7 +6,7 @@ _LOG_CONFIG = {
     "disable_existing_loggers": False,
     "formatters": {
         "default": {
-            "fmt": "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+            "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
             "datefmt": "%Y-%m-%d %H:%M:%S",
         },
         "access": {
@@ -28,9 +28,9 @@ _LOG_CONFIG = {
         },
     },
     "loggers": {
-        "uvicorn": {"handlers": ["default"], "level": "INFO", "propagate": False},
-        "uvicorn.error": {"handlers": ["default"], "level": "INFO", "propagate": False},
-        "uvicorn.access": {"handlers": ["access"], "level": "INFO", "propagate": False},
+        "uvicorn": {"handlers": ["default"], "level": settings.log_level.upper(), "propagate": False},
+        "uvicorn.error": {"handlers": ["default"], "level": settings.log_level.upper(), "propagate": False},
+        "uvicorn.access": {"handlers": ["access"], "level": settings.log_level.upper(), "propagate": False},
     },
 }
 

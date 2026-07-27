@@ -8,10 +8,11 @@ import httpx
 logger = logging.getLogger(__name__)
 
 
-async def query_seadex(anilist_ids: list[int]) -> list[dict]:
+async def query_seadex(anilist_ids: list[int]) -> Optional[list[dict]]:
     """
     Query SeaDex for entries matching one or more AniList IDs.
-    Returns the list of entry records with expanded torrent records.
+    Returns the list of entry records with expanded torrent records,
+    or None if the request failed (as opposed to a genuinely empty result).
     """
     if not anilist_ids:
         return []
@@ -50,10 +51,10 @@ async def query_seadex(anilist_ids: list[int]) -> list[dict]:
 
     except httpx.HTTPStatusError as e:
         logger.error(f"SeaDex HTTP error: {e.response.status_code} - {e.response.text[:200]}")
-        return []
+        return None
     except Exception as e:
         logger.error(f"SeaDex request failed: {e}")
-        return []
+        return None
 
     logger.debug(f"SeaDex returned {len(all_items)} entries total")
     return all_items

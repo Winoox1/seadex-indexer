@@ -143,6 +143,8 @@ async def fetch_all_torrents(metas: list[dict]) -> list[dict]:
     Fetch Nyaa torrent pages with bounded concurrency and a global rate limit
     on request starts. Up to nyaa_concurrency fetches run in parallel, but
     no two requests start less than nyaa_batch_interval seconds apart.
+    Failed fetches are retried once through the same pacer, so a transient
+    blip doesn't leave a partial result cached without its missing releases.
     """
     sem = asyncio.Semaphore(settings.nyaa_concurrency)
     pacer_lock = asyncio.Lock()
@@ -151,7 +153,14 @@ async def fetch_all_torrents(metas: list[dict]) -> list[dict]:
     async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
         tasks = [_fetch_one(meta, client, sem, pacer_lock, last_start) for meta in metas]
         raw = await asyncio.gather(*tasks)
+        results = [r for r in raw if r is not None]
 
-    results = [r for r in raw if r is not None]
+        failed = [meta for meta, r in zip(metas, raw) if r is None]
+        if failed:
+            logger.info(f"Nyaa: retrying {len(failed)} failed fetches")
+            retry_tasks = [_fetch_one(meta, client, sem, pacer_lock, last_start) for meta in failed]
+            retry_raw = await asyncio.gather(*retry_tasks)
+            results.extend(r for r in retry_raw if r is not None)
+
     logger.info(f"Nyaa: fetched {len(results)}/{len(metas)} torrent pages")
     return results
