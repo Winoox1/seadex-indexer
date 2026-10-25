@@ -25,7 +25,7 @@ async def query_seadex(anilist_ids: list[int]) -> Optional[list[dict]]:
     page = 1
 
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
             while True:
                 params = {
                     "filter": filter_str,
@@ -34,7 +34,7 @@ async def query_seadex(anilist_ids: list[int]) -> Optional[list[dict]]:
                     "page": str(page),
                 }
                 resp = await client.get(
-                    "https://releases.moe/api/collections/entries/records",
+                    "https://seadex.moe/api/collections/entries/records",
                     params=params,
                 )
                 resp.raise_for_status()

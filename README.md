@@ -3,9 +3,9 @@
 > [!IMPORTANT]
 > **This code in this project was made entirely with AI.** It was made for a personal need, but I decided to share it in case someone else found it useful.
 
-A Prowlarr Torznab indexer that serves the best anime releases from **[SeaDex](https://releases.moe)** to Sonarr and Radarr. Uses **[AniBridge mappings](https://github.com/anibridge/anibridge-mappings)** for ID mapping.
+A Prowlarr Torznab indexer that serves the best anime releases from **[SeaDex](https://seadex.moe)** to Sonarr and Radarr. Uses **[AniBridge mappings](https://github.com/anibridge/anibridge-mappings)** for ID mapping.
 
-Huge thanks to the people maintaining **[SeaDex](https://releases.moe)** so it's easy to grab the best available releases, and to the people maintaining the **[AniBridge mappings](https://github.com/anibridge/anibridge-mappings)** project, this wouldn't be possible without all of their hard work.
+Huge thanks to the people maintaining **[SeaDex](https://seadex.moe)** so it's easy to grab the best available releases, and to the people maintaining the **[AniBridge mappings](https://github.com/anibridge/anibridge-mappings)** project, this wouldn't be possible without all of their hard work.
 
 ## Features
 

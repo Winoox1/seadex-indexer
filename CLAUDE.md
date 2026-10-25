@@ -8,7 +8,7 @@ Retain all existing architecture and design decisions that are already in place.
 
 ## What this is
 
-A Torznab-compatible indexer that bridges **SeaDex** (curated anime release database at releases.moe) with **Sonarr** and **Radarr** via Prowlarr. It exposes two endpoints (`/sonarr/api`, `/radarr/api`) that translate TVDB/TMDB/IMDB IDs → AniList IDs → SeaDex entries → Nyaa torrent metadata → Torznab XML.
+A Torznab-compatible indexer that bridges **SeaDex** (curated anime release database at seadex.moe) with **Sonarr** and **Radarr** via Prowlarr. It exposes two endpoints (`/sonarr/api`, `/radarr/api`) that translate TVDB/TMDB/IMDB IDs → AniList IDs → SeaDex entries → Nyaa torrent metadata → Torznab XML.
 
 ## Running locally
 
@@ -71,7 +71,7 @@ Sonarr/Radarr → /sonarr/api or /radarr/api
 SeaDex runs on PocketBase. We query:
 
 ```
-GET https://releases.moe/api/collections/entries/records
+GET https://seadex.moe/api/collections/entries/records
     ?filter=alID=101348||alID=101349
     &expand=trs
     &perPage=50

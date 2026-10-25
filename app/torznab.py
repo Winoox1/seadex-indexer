@@ -64,7 +64,7 @@ def _caps_xml(mode: str) -> str:
 
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <caps>
-  <server version="1.1" title="{title}" strapline="Best anime releases via SeaDex" url="https://releases.moe"/>
+  <server version="1.1" title="{title}" strapline="Best anime releases via SeaDex" url="https://seadex.moe"/>
   <limits max="100" default="50"/>
   <registration available="no" open="no"/>
   <searching>{searching}
@@ -84,7 +84,7 @@ def _prowlarr_test_xml(mode: str) -> str:
 <rss version="2.0" xmlns:torznab="http://torznab.com/schemas/2015/feed">
   <channel>
     <title>{title}</title>
-    <link>https://releases.moe</link>
+    <link>https://seadex.moe</link>
     <description>Best anime releases via SeaDex</description>
     <item>
       <title><![CDATA[{dummy_title}]]></title>
@@ -109,7 +109,7 @@ def _empty_xml(mode: str) -> str:
 <rss version="2.0" xmlns:torznab="http://torznab.com/schemas/2015/feed">
   <channel>
     <title>{title}</title>
-    <link>https://releases.moe</link>
+    <link>https://seadex.moe</link>
     <description>Best anime releases via SeaDex</description>
   </channel>
 </rss>"""
@@ -159,7 +159,7 @@ def build_results_xml(torrents: list[dict], mode: str, season: Optional[int] = N
 <rss version="2.0" xmlns:torznab="http://torznab.com/schemas/2015/feed">
   <channel>
     <title>{title}</title>
-    <link>https://releases.moe</link>
+    <link>https://seadex.moe</link>
     <description>Best anime releases via SeaDex</description>
     {items}
   </channel>
