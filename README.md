@@ -10,9 +10,10 @@ Huge thanks to the people maintaining **[SeaDex](https://seadex.moe)** so it's e
 ## Features
 
 - **Sonarr & Radarr support** - via `/sonarr/api` and `/radarr/api`. Flow is: Sonarr/Radarr request with TVDB ID + Season / TMDB ID or IMDB ID -> Map to AniList ID -> Query SeaDex API -> Scrape Nyaa -> Return to Sonarr/Radarr
-- **Caching** - 2-hour result cache to avoid redundant SeaDex and Nyaa requests. Partial results (some Nyaa pages unreachable) are only cached for 15 minutes and empty results caused by upstream failures (SeaDex/Nyaa outages) for 60 seconds, so a brief outage doesn't hide results for hours. Cache is cleared on container restart.
+- **Caching** - 2-hour result cache to avoid redundant SeaDex and Nyaa requests. Partial results (some Nyaa pages unreachable) are only cached for 15 minutes, so missing releases reappear soon. Cache is cleared on container restart.
 - **Add Title Tags** - Adds `[SeaDexBest]`, `[SeaDexAlt]`, and all SeaDex compatibility tags.
-- **Add Season or Year to title** - For Sonarr requests, the season it sends will be added as `[SXX]` if it's not present already. For Radarr a year will be added if it's not present already by fetching it from AniList (This improves the chances a release will be recognised but does not guarantee it)
+- **Add Season or Year to title** - For Sonarr requests, the season it sends will be added as `SXX` if it's not present already. For Radarr a year will be added if it's not present already by fetching it from AniList (This improves the chances a release will be recognised but does not guarantee it)
+- **ID matching** - Each result carries the TVDB ID (Sonarr) or TMDB/IMDB ID (Radarr) that was searched for, so Sonarr/Radarr can still match a release whose title they don't recognise. For Radarr this is only added to single-movie torrents, so a movie collection batch can't be grabbed for just one of its movies.
 - **Full Seasons only** - No matter if a season or episode search is done, only full seasons will be returned.
 
 > [!TIP]
@@ -331,7 +332,7 @@ GET /health
 
 Returns `{"status": "ok", "mappings_loaded": true}` with HTTP 200 once mappings are loaded.
 
-- While mappings are not loaded (still starting up, or the initial AniBridge fetch failed) it returns HTTP **503** with `{"status": "unavailable", "mappings_loaded": false}` searches would return empty results in this state, and the Docker healthcheck reports the container as unhealthy.
+- While mappings are not loaded (still starting up, or the initial AniBridge fetch failed) it returns HTTP **503** with `{"status": "unavailable", "mappings_loaded": false}`. Searches return empty results in this state, and the Docker healthcheck reports the container as unhealthy.
 
 - If the initial mapping fetch failed, the app retries every 60 seconds until it succeeds, so this state normally resolves itself.
 

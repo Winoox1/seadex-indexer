@@ -7,6 +7,25 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+_VIDEO_EXTS = (".mkv", ".mp4", ".avi", ".m2ts", ".ts", ".webm", ".mov", ".wmv")
+
+
+def _count_features(files: list[dict]) -> int:
+    """
+    Count full-length video files - those at least half the size of the largest
+    video - so extras like creditless OP/ED, trailers and PVs aren't counted.
+    1 for a single movie, more for a batch, 0 if SeaDex has no file list.
+    """
+    sizes = [
+        f.get("length") or 0
+        for f in files
+        if str(f.get("name", "")).lower().endswith(_VIDEO_EXTS)
+    ]
+    if not sizes:
+        return 0
+    largest = max(sizes)
+    return sum(1 for size in sizes if size >= largest / 2)
+
 
 async def query_seadex(anilist_ids: list[int]) -> Optional[list[dict]]:
     """
@@ -63,7 +82,8 @@ async def query_seadex(anilist_ids: list[int]) -> Optional[list[dict]]:
 def extract_nyaa_torrents(entries: list[dict]) -> list[dict]:
     """
     Extract Nyaa torrent metadata from SeaDex entries.
-    Returns a flat list of torrent dicts with nyaaId, viewUrl, best, tags.
+    Returns a flat list of torrent dicts with nyaaId, viewUrl, best, tags,
+    releaseGroup and features (full-length video file count).
     """
     torrents = []
     skipped = 0
@@ -86,6 +106,7 @@ def extract_nyaa_torrents(entries: list[dict]) -> list[dict]:
                 "best": torrent.get("isBest") is True,
                 "tags": torrent.get("tags") or [],
                 "releaseGroup": torrent.get("releaseGroup", ""),
+                "features": _count_features(torrent.get("files") or []),
             })
 
     logger.debug(f"Extracted {len(torrents)} Nyaa torrents ({skipped} non-Nyaa skipped)")
