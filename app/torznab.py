@@ -8,6 +8,8 @@ _YEAR_RE = re.compile(r"\b(19|20)\d{2}\b")
 # Matches the first quality/format marker after the show name (version tag, or opening bracket)
 _QUALITY_MARKER_RE = re.compile(r"^(\[.*?\]\s*)(.*?)(\s+(?:v\d+|\(|\[))", re.DOTALL)
 _QUALITY_MARKER_NO_GROUP_RE = re.compile(r"^(.*?)(\s+(?:v\d+|\(|\[))", re.DOTALL)
+# Bare episode range right after the show name ("Show 01-12"), not after a dash ("Show - 01-12")
+_BARE_RANGE_RE = re.compile(r"(?<![-~])\s+\d{2,4}\s*[-~]\s*\d{2,4}\b")
 
 # SeaDex tag rewrites - avoid words Sonarr's parser misinterprets (e.g. "Special" → season 0)
 _TAG_REWRITES = {
@@ -26,7 +28,15 @@ def _insert_before_quality(title: str, tag: str) -> str:
 
 
 def _insert_season_tag(title: str, season: int) -> str:
-    return _insert_before_quality(title, f"[S{season:02d}]")
+    # Bare "S01", not "[S01]" - Sonarr folds a bracketed tag into the series
+    # title when an episode range follows (e.g. "[S01] (01-24)"), so the
+    # series never matches
+    tag = f"S{season:02d}"
+    # Before a bare episode range too - "Show 01-12 S01" parses as series "Show 01-12"
+    m = _BARE_RANGE_RE.search(title)
+    if m:
+        return f"{title[:m.start()]} {tag}{title[m.start():]}"
+    return _insert_before_quality(title, tag)
 
 
 def _insert_year_tag(title: str, year: int) -> str:
@@ -115,7 +125,16 @@ def _empty_xml(mode: str) -> str:
 </rss>"""
 
 
-def _build_item(t: dict, mode: str, season: Optional[int] = None, year: Optional[int] = None) -> str:
+def _error_xml(description: str, code: int = 900) -> str:
+    """
+    Torznab error document - Sonarr/Radarr/Prowlarr record it as a failed search
+    (and mark the indexer failing), unlike an empty feed which reads as "no results".
+    """
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<error code="{code}" description="{escape(description, {'"': "&quot;"})}"/>"""
+
+
+def _build_item(t: dict, mode: str, season: Optional[int] = None, year: Optional[int] = None, id_attrs: Optional[dict[str, str]] = None) -> str:
     cat = "5070" if mode == "sonarr" else "2070"
     seadex_tag = "[SeaDexBest]" if t["best"] else "[SeaDexAlt]"
     tag_str = " ".join(f"[{_TAG_REWRITES.get(tag, tag)}]" for tag in t.get("tags", []))
@@ -135,6 +154,16 @@ def _build_item(t: dict, mode: str, season: Optional[int] = None, year: Optional
         if t.get("hash")
         else ""
     )
+    # Requested IDs (tvdbid / tmdbid / imdb) - the arrs fall back to matching
+    # these against the search criteria when the release title doesn't match.
+    # Radarr only for single-movie torrents: an ID match would otherwise make it
+    # accept a film-collection batch for whichever film was searched.
+    id_attr_str = ""
+    if mode == "sonarr" or t.get("features") == 1:
+        id_attr_str = "".join(
+            f'\n      <torznab:attr name="{name}" value="{escape(value)}"/>'
+            for name, value in (id_attrs or {}).items()
+        )
 
     return f"""
     <item>
@@ -146,15 +175,15 @@ def _build_item(t: dict, mode: str, season: Optional[int] = None, year: Optional
       <enclosure url="{escape(t['link'])}" length="{t['size']}" type="application/x-bittorrent"/>
       <torznab:attr name="category" value="{cat}"/>
       <torznab:attr name="seeders" value="{t['seeders']}"/>
-      <torznab:attr name="peers" value="{t['peers']}"/>{hash_attr}
+      <torznab:attr name="peers" value="{t['peers']}"/>{hash_attr}{id_attr_str}
       <torznab:attr name="downloadvolumefactor" value="0"/>
       <torznab:attr name="uploadvolumefactor" value="1"/>
     </item>"""
 
 
-def build_results_xml(torrents: list[dict], mode: str, season: Optional[int] = None, year: Optional[int] = None) -> str:
+def build_results_xml(torrents: list[dict], mode: str, season: Optional[int] = None, year: Optional[int] = None, id_attrs: Optional[dict[str, str]] = None) -> str:
     title = "SeaDex Sonarr Indexer" if mode == "sonarr" else "SeaDex Radarr Indexer"
-    items = "".join(_build_item(t, mode, season, year) for t in torrents if t.get("title") and t.get("link"))
+    items = "".join(_build_item(t, mode, season, year, id_attrs) for t in torrents if t.get("title") and t.get("link"))
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:torznab="http://torznab.com/schemas/2015/feed">
   <channel>
@@ -170,3 +199,4 @@ def build_results_xml(torrents: list[dict], mode: str, season: Optional[int] = N
 caps_xml = _caps_xml
 prowlarr_test_xml = _prowlarr_test_xml
 empty_xml = _empty_xml
+error_xml = _error_xml

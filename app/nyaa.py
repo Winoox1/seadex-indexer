@@ -95,6 +95,7 @@ def _scrape_html(html: str, nyaa_id: str, meta: dict) -> Optional[dict]:
         "best": meta["best"],
         "tags": meta.get("tags", []),
         "releaseGroup": meta.get("releaseGroup", ""),
+        "features": meta.get("features", 0),
     }
 
 

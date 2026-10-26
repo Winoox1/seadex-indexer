@@ -20,10 +20,6 @@ logger = logging.getLogger(__name__)
 XML_CONTENT_TYPE = "application/rss+xml; charset=utf-8"
 CAPS_CONTENT_TYPE = "application/xml; charset=utf-8"
 
-# Short TTL for empty results caused by upstream failures (SeaDex/Nyaa errors),
-# so a transient outage isn't remembered for the full negative_cache_ttl.
-ERROR_CACHE_TTL = 60
-
 # TTL for partial results (some Nyaa pages failed even after the retry) - long
 # enough to absorb a search burst, short enough that the missing releases
 # reappear on the next search cycle instead of after the full result TTL.
@@ -98,18 +94,20 @@ async def _resolve_anilist_ids_radarr(
     return ids
 
 
-async def _search_and_build(anilist_ids: list[int], mode: str, season: Optional[int] = None, year: Optional[int] = None) -> tuple[str, int]:
+async def _search_and_build(anilist_ids: list[int], mode: str, season: Optional[int] = None, year: Optional[int] = None, id_attrs: Optional[dict[str, str]] = None) -> tuple[str, Optional[int]]:
     """
     Run the full SeaDex -> Nyaa pipeline.
-    Returns (Torznab XML, cache TTL) - empty results from upstream failures get
-    ERROR_CACHE_TTL so they are retried soon, genuine misses get negative_cache_ttl.
+    Returns (Torznab XML, cache TTL) - upstream failures return a Torznab error
+    (so Prowlarr flags the indexer) with TTL None (not cached - the arrs back off
+    a failing indexer themselves), genuine misses return an empty feed cached for
+    negative_cache_ttl.
     """
     t0 = time.monotonic()
 
     entries = await seadex.query_seadex(anilist_ids)
     if entries is None:
-        logger.info(f"[{mode}] anilist={anilist_ids} - SeaDex query failed, caching {ERROR_CACHE_TTL}s")
-        return torznab.empty_xml(mode), ERROR_CACHE_TTL
+        logger.info(f"[{mode}] anilist={anilist_ids} - SeaDex query failed, returning error (not cached)")
+        return torznab.error_xml("SeaDex API request failed"), None
     if not entries:
         logger.info(f"[{mode}] anilist={anilist_ids} - no SeaDex entries found, caching {settings.negative_cache_ttl}s")
         return torznab.empty_xml(mode), settings.negative_cache_ttl
@@ -121,15 +119,15 @@ async def _search_and_build(anilist_ids: list[int], mode: str, season: Optional[
 
     torrents = await nyaa.fetch_all_torrents(nyaa_metas)
     if not torrents:
-        logger.info(f"[{mode}] anilist={anilist_ids} - all Nyaa fetches failed, caching {ERROR_CACHE_TTL}s")
-        return torznab.empty_xml(mode), ERROR_CACHE_TTL
+        logger.info(f"[{mode}] anilist={anilist_ids} - all Nyaa fetches failed, returning error (not cached)")
+        return torznab.error_xml("All Nyaa page fetches failed"), None
 
     if len(torrents) < len(nyaa_metas):
         logger.warning(
             f"[{mode}] anilist={anilist_ids} - partial result "
             f"{len(torrents)}/{len(nyaa_metas)}, caching {PARTIAL_CACHE_TTL}s"
         )
-        return torznab.build_results_xml(torrents, mode, season, year), PARTIAL_CACHE_TTL
+        return torznab.build_results_xml(torrents, mode, season, year, id_attrs), PARTIAL_CACHE_TTL
 
     best = sum(1 for t in torrents if t["best"])
     alt = len(torrents) - best
@@ -140,7 +138,7 @@ async def _search_and_build(anilist_ids: list[int], mode: str, season: Optional[
         f"caching {settings.result_cache_ttl}s"
     )
 
-    return torznab.build_results_xml(torrents, mode, season, year), settings.result_cache_ttl
+    return torznab.build_results_xml(torrents, mode, season, year, id_attrs), settings.result_cache_ttl
 
 
 # ── Sonarr endpoint ────────────────────────────────────────────────────────────
@@ -178,15 +176,17 @@ async def sonarr_api(
         logger.info(f"sonarr tvdb={tvdbid} s={season} - no AniList mapping")
         return xml_response(torznab.empty_xml("sonarr"))
 
-    cache_key = f"seadex:result:sonarr:al:{anilist_ids[0]}:s{season}"
+    # tvdb is in the key because the cached XML carries it as the tvdbid attr
+    cache_key = f"seadex:result:sonarr:al:{anilist_ids[0]}:s{season}:tvdb{tvdbid}"
     cached = cache_get(cache_key)
     if cached:
         logger.info(f"Cache hit: sonarr anilist={anilist_ids[0]} s={season}")
         return xml_response(cached)
 
     logger.info(f"sonarr tvdb={tvdbid} s={season} -> anilist={anilist_ids}")
-    xml, ttl = await _search_and_build(anilist_ids, "sonarr", season)
-    cache_set(cache_key, xml, ttl)
+    xml, ttl = await _search_and_build(anilist_ids, "sonarr", season, id_attrs={"tvdbid": str(tvdbid)})
+    if ttl is not None:
+        cache_set(cache_key, xml, ttl)
     return xml_response(xml)
 
 
@@ -219,7 +219,16 @@ async def radarr_api(
         logger.info(f"radarr tmdb={tmdbid} imdb={imdbid} - no AniList mapping")
         return xml_response(torznab.empty_xml("radarr"))
 
-    cache_key = f"seadex:result:radarr:al:{anilist_ids[0]}"
+    # Radarr reads tmdbid, and imdb as the bare number without the "tt" prefix
+    id_attrs: dict[str, str] = {}
+    if tmdbid:
+        id_attrs["tmdbid"] = str(tmdbid)
+    imdb_num = imdbid.removeprefix("tt") if imdbid else ""
+    if imdb_num.isdigit():
+        id_attrs["imdb"] = imdb_num
+
+    # Requested IDs are in the key because the cached XML carries them as attrs
+    cache_key = f"seadex:result:radarr:al:{anilist_ids[0]}:tmdb{tmdbid}:imdb{imdb_num}"
     cached = cache_get(cache_key)
     if cached:
         logger.info(f"Cache hit: radarr anilist={anilist_ids[0]}")
@@ -227,8 +236,9 @@ async def radarr_api(
 
     year = await anilist.fetch_year(anilist_ids[0])
     logger.info(f"radarr tmdb={tmdbid} imdb={imdbid} -> anilist={anilist_ids} year={year}")
-    xml, ttl = await _search_and_build(anilist_ids, "radarr", year=year)
-    cache_set(cache_key, xml, ttl)
+    xml, ttl = await _search_and_build(anilist_ids, "radarr", year=year, id_attrs=id_attrs)
+    if ttl is not None:
+        cache_set(cache_key, xml, ttl)
     return xml_response(xml)
 
 
